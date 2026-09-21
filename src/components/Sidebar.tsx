@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { PanelLeftClose, PanelLeftOpen, Plus, Home, Users, LogOut, Trash2 } from "lucide-react";
@@ -83,6 +84,10 @@ export function Sidebar({
 
   return (
     <div className="flex h-screen w-64 shrink-0 flex-col border-r border-neutral-200 bg-neutral-50">
+      <div className="flex items-center gap-2 px-3 pt-3">
+        <Image src="/logo.png" alt="Master" width={24} height={24} className="h-6 w-6 shrink-0 rounded object-contain" />
+        <span className="truncate text-sm font-semibold text-neutral-800">Gestão de Tarefas da Master</span>
+      </div>
       <div className="flex items-center justify-between px-3 py-3">
         <span className="truncate text-sm font-medium text-neutral-700">{userLabel}</span>
         <button

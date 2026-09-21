@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
@@ -31,8 +32,9 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-neutral-50 px-4">
       <div className="w-full max-w-sm rounded-xl border border-neutral-200 bg-white p-8 shadow-sm">
-        <h1 className="mb-1 text-xl font-semibold text-neutral-900">Master Regularização</h1>
-        <p className="mb-6 text-sm text-neutral-500">Entre com sua conta da equipe.</p>
+        <Image src="/logo.png" alt="Master Regularização Imobiliária" width={140} height={140} className="mx-auto mb-4 h-auto w-32" priority />
+        <h1 className="mb-1 text-center text-xl font-semibold text-neutral-900">Gestão de Tarefas da Master</h1>
+        <p className="mb-6 text-center text-sm text-neutral-500">Entre com sua conta da equipe.</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
