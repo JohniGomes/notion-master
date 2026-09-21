@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { InviteMemberForm } from "@/components/InviteMemberForm";
+import { TeamMembersList } from "@/components/TeamMembersList";
 
 export default async function TeamSettingsPage() {
   const supabase = await createClient();
@@ -16,16 +17,9 @@ export default async function TeamSettingsPage() {
 
       <div className="rounded-xl border border-neutral-200 bg-white">
         <h2 className="border-b border-neutral-200 px-5 py-3 text-sm font-semibold text-neutral-700">
-          Membros
+          Membros <span className="font-normal text-neutral-400">(clique no nome para editar)</span>
         </h2>
-        <ul className="divide-y divide-neutral-100">
-          {(profiles ?? []).map((p) => (
-            <li key={p.id} className="flex items-center justify-between px-5 py-3 text-sm">
-              <span className="font-medium text-neutral-800">{p.full_name || "Sem nome"}</span>
-              <span className="text-neutral-500">{p.email}</span>
-            </li>
-          ))}
-        </ul>
+        <TeamMembersList initialProfiles={profiles ?? []} />
       </div>
     </div>
   );

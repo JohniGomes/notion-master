@@ -5,11 +5,10 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-export default function AcceptInvitePage() {
+export default function ResetPasswordPage() {
   const router = useRouter();
   const supabase = createClient();
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
@@ -27,16 +26,7 @@ export default function AcceptInvitePage() {
     setLoading(true);
     setError(null);
 
-    // O link do convite já autenticou uma sessão temporária; aqui só definimos
-    // a senha definitiva e o nome do usuário.
-    const { data, error } = await supabase.auth.updateUser({
-      password,
-      data: { full_name: fullName },
-    });
-
-    if (!error && data.user) {
-      await supabase.from("profiles").update({ full_name: fullName }).eq("id", data.user.id);
-    }
+    const { error } = await supabase.auth.updateUser({ password });
 
     setLoading(false);
     if (error) {
@@ -55,7 +45,7 @@ export default function AcceptInvitePage() {
         <div className="w-full max-w-sm rounded-xl border border-neutral-200 bg-white p-8 text-center shadow-sm">
           <h1 className="mb-2 text-lg font-semibold text-neutral-900">Link inválido ou expirado</h1>
           <p className="mb-4 text-sm text-neutral-500">
-            Peça para um administrador enviar um novo convite para o seu e-mail.
+            Peça um novo link em &quot;Esqueci minha senha&quot; na tela de login.
           </p>
           <a href="/login" className="text-sm font-medium text-neutral-900 underline">
             Voltar para o login
@@ -69,24 +59,12 @@ export default function AcceptInvitePage() {
     <div className="flex min-h-screen items-center justify-center bg-neutral-50 px-4">
       <div className="w-full max-w-sm rounded-xl border border-neutral-200 bg-white p-8 shadow-sm">
         <Image src="/logo.png" alt="Master" width={100} height={100} className="mx-auto mb-4 h-auto w-24" />
-        <h1 className="mb-1 text-xl font-semibold text-neutral-900">Bem-vindo(a)!</h1>
-        <p className="mb-6 text-sm text-neutral-500">
-          Defina seu nome e uma senha para acessar a plataforma.
-        </p>
+        <h1 className="mb-1 text-xl font-semibold text-neutral-900">Nova senha</h1>
+        <p className="mb-6 text-sm text-neutral-500">Escolha uma nova senha para acessar sua conta.</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-neutral-700">Seu nome</label>
-            <input
-              type="text"
-              required
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-neutral-700">Senha</label>
+            <label className="mb-1 block text-sm font-medium text-neutral-700">Nova senha</label>
             <input
               type="password"
               required
@@ -104,7 +82,7 @@ export default function AcceptInvitePage() {
             disabled={loading}
             className="w-full rounded-md bg-neutral-900 py-2 text-sm font-medium text-white transition hover:bg-neutral-700 disabled:opacity-50"
           >
-            {loading ? "Salvando..." : "Concluir cadastro"}
+            {loading ? "Salvando..." : "Salvar nova senha"}
           </button>
         </form>
       </div>

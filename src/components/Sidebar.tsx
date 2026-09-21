@@ -4,7 +4,8 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { PanelLeftClose, PanelLeftOpen, Plus, Home, Users, LogOut, Trash2 } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, Plus, Home, Users, LogOut, Trash2, KeyRound } from "lucide-react";
+import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 import clsx from "clsx";
 import { createClient } from "@/lib/supabase/client";
 import { createSpace, deleteSpace, restoreSpace } from "@/lib/data/spaces";
@@ -22,6 +23,7 @@ export function Sidebar({
 }) {
   const [spaces, setSpaces] = useState(initialSpaces);
   const [collapsed, setCollapsed] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const pathname = usePathname();
@@ -165,13 +167,20 @@ export function Sidebar({
         </ul>
       </nav>
 
-      <div className="border-t border-neutral-200 px-3 py-2">
+      <div className="space-y-1 border-t border-neutral-200 px-3 py-2">
+        <button
+          onClick={() => setChangingPassword(true)}
+          className="flex items-center gap-2 text-sm text-neutral-500 hover:text-neutral-900"
+        >
+          <KeyRound size={15} /> Redefinir senha
+        </button>
         <button
           onClick={handleSignOut}
           className="flex items-center gap-2 text-sm text-neutral-500 hover:text-neutral-900"
         >
           <LogOut size={15} /> Sair
         </button>
+        {changingPassword && <ChangePasswordModal onClose={() => setChangingPassword(false)} />}
       </div>
     </div>
   );

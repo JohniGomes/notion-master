@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
   }
 
   const admin = createAdminClient();
-  const redirectTo = `${request.nextUrl.origin}/accept-invite`;
+  const redirectTo = `${request.nextUrl.origin}/auth/confirm?next=/accept-invite`;
 
   const { error } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo });
 
