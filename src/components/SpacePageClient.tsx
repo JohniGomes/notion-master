@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { assigneeDisplay, deleteTask, restoreTask, updateTask } from "@/lib/data/tasks";
 import { deleteClient, restoreClient } from "@/lib/data/clients";
 import { updateSpaceCover } from "@/lib/data/spaces";
+import { notifyStatusChange } from "@/lib/notify";
 import type { TaskWithAssignee } from "@/lib/data/tasks";
 import type { Client, Profile, ServiceTemplate, Space, Task, TaskStatus } from "@/lib/supabase/types";
 import { CoverUploader } from "@/components/CoverUploader";
@@ -134,6 +135,7 @@ export function SpacePageClient({
   async function handleStatusChange(taskId: string, status: TaskStatus) {
     patchTask(taskId, { status });
     await updateTask(supabase, taskId, { status });
+    notifyStatusChange(taskId);
   }
 
   async function handleDeleteTask(taskId: string) {

@@ -16,6 +16,7 @@ import type { TaskWithAssignee } from "@/lib/data/tasks";
 import { StatusBadge } from "@/components/StatusBadge";
 import { STATUS_LABEL, STATUS_ORDER } from "@/components/status";
 import { AssigneeInput } from "@/components/AssigneeInput";
+import { notifyStatusChange } from "@/lib/notify";
 
 export function TaskPanel({
   task,
@@ -54,6 +55,7 @@ export function TaskPanel({
   async function handleStatusChange(status: TaskStatus) {
     await updateTask(supabase, task.id, { status });
     onTaskUpdated({ status });
+    notifyStatusChange(task.id);
   }
 
   async function handleAssigneeInputChange(value: { assigneeId: string | null; assigneeName: string | null }) {

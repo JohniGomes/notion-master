@@ -6,6 +6,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { assigneeDisplay, buildTaskTree, deleteTask, restoreTask, updateTask } from "@/lib/data/tasks";
 import { deleteClient, restoreClient, updateClientCover } from "@/lib/data/clients";
+import { notifyStatusChange } from "@/lib/notify";
 import { useToast } from "@/components/ToastProvider";
 import type { TaskWithAssignee } from "@/lib/data/tasks";
 import type { Client, Profile, ServiceTemplate, Task, TaskStatus } from "@/lib/supabase/types";
@@ -90,6 +91,7 @@ export function ClientPageClient({
   async function handleStatusChange(taskId: string, status: TaskStatus) {
     patchTask(taskId, { status });
     await updateTask(supabase, taskId, { status });
+    notifyStatusChange(taskId);
   }
 
   async function handleDeleteTask(taskId: string) {
