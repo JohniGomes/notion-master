@@ -50,6 +50,13 @@ export interface Task {
   deleted_at: string | null;
 }
 
+export interface ServiceTemplate {
+  code: string;
+  name: string;
+  parent_code: string | null;
+  position: number;
+}
+
 export interface Comment {
   id: string;
   task_id: string;

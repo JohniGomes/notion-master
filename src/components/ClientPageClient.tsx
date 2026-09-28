@@ -8,7 +8,7 @@ import { assigneeDisplay, buildTaskTree, deleteTask, restoreTask, updateTask } f
 import { deleteClient, restoreClient, updateClientCover } from "@/lib/data/clients";
 import { useToast } from "@/components/ToastProvider";
 import type { TaskWithAssignee } from "@/lib/data/tasks";
-import type { Client, Profile, Task, TaskStatus } from "@/lib/supabase/types";
+import type { Client, Profile, ServiceTemplate, Task, TaskStatus } from "@/lib/supabase/types";
 import { CoverUploader } from "@/components/CoverUploader";
 import { Toolbar, type ViewMode, type SortKey } from "@/components/Toolbar";
 import { TableView } from "@/components/views/TableView";
@@ -22,11 +22,13 @@ export function ClientPageClient({
   client,
   initialTasks,
   profiles,
+  serviceCatalog,
   currentUserId,
 }: {
   client: Client;
   initialTasks: TaskWithAssignee[];
   profiles: Profile[];
+  serviceCatalog: ServiceTemplate[];
   currentUserId: string;
 }) {
   const supabase = createClient();
@@ -191,6 +193,7 @@ export function ClientPageClient({
           spaceId={client.space_id}
           clients={[client]}
           profiles={profiles}
+          serviceCatalog={serviceCatalog}
           currentUserId={currentUserId}
           fixedClient={client}
           onClose={() => setModalOpen(false)}

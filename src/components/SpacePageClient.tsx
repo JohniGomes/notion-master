@@ -7,7 +7,7 @@ import { assigneeDisplay, deleteTask, restoreTask, updateTask } from "@/lib/data
 import { deleteClient, restoreClient } from "@/lib/data/clients";
 import { updateSpaceCover } from "@/lib/data/spaces";
 import type { TaskWithAssignee } from "@/lib/data/tasks";
-import type { Client, Profile, Space, Task, TaskStatus } from "@/lib/supabase/types";
+import type { Client, Profile, ServiceTemplate, Space, Task, TaskStatus } from "@/lib/supabase/types";
 import { CoverUploader } from "@/components/CoverUploader";
 import { Toolbar, type ViewMode, type SortKey } from "@/components/Toolbar";
 import { GroupedTableView } from "@/components/views/GroupedTableView";
@@ -23,12 +23,14 @@ export function SpacePageClient({
   initialClients,
   initialTasks,
   profiles,
+  serviceCatalog,
   currentUserId,
 }: {
   space: Space;
   initialClients: Client[];
   initialTasks: TaskWithAssignee[];
   profiles: Profile[];
+  serviceCatalog: ServiceTemplate[];
   currentUserId: string;
 }) {
   const supabase = createClient();
@@ -263,6 +265,7 @@ export function SpacePageClient({
           spaceId={space.id}
           clients={clients}
           profiles={profiles}
+          serviceCatalog={serviceCatalog}
           currentUserId={currentUserId}
           fixedClient={modalClient === "new" ? undefined : modalClient}
           fixedOsNumber={modalOsNumber}

@@ -1,11 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { X, Paperclip } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { createClientRecord } from "@/lib/data/clients";
 import { addAttachment, createTask } from "@/lib/data/tasks";
-import type { Client, Profile, Task, TaskStatus } from "@/lib/supabase/types";
+import type { Client, Profile, ServiceTemplate, Task, TaskStatus } from "@/lib/supabase/types";
 import { STATUS_LABEL, STATUS_ORDER } from "@/components/status";
 import { AssigneeInput } from "@/components/AssigneeInput";
 
@@ -13,6 +13,7 @@ export function NewServiceModal({
   spaceId,
   clients,
   profiles,
+  serviceCatalog,
   currentUserId,
   fixedClient,
   fixedOsNumber,
@@ -22,6 +23,7 @@ export function NewServiceModal({
   spaceId: string;
   clients: Client[];
   profiles: Profile[];
+  serviceCatalog: ServiceTemplate[];
   currentUserId: string;
   /** Quando aberto a partir de um cliente específico, pula a etapa de escolher/criar cliente. */
   fixedClient?: Client;
@@ -33,8 +35,12 @@ export function NewServiceModal({
   const supabase = createClient();
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const topLevelServices = useMemo(
+    () => serviceCatalog.filter((s) => s.parent_code === null),
+    [serviceCatalog]
+  );
+
   const [clientName, setClientName] = useState(fixedClient?.name ?? "");
-  const [etapa, setEtapa] = useState("");
   const [servico, setServico] = useState("");
   const [osNumber, setOsNumber] = useState(fixedOsNumber ? String(fixedOsNumber) : "");
   const [status, setStatus] = useState<TaskStatus>("not_started");
@@ -46,10 +52,25 @@ export function NewServiceModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  const matchedService = useMemo(
+    () =>
+      topLevelServices.find((s) => s.name.trim().toLowerCase() === servico.trim().toLowerCase()) ?? null,
+    [topLevelServices, servico]
+  );
+  const matchedSteps = useMemo(
+    () =>
+      matchedService
+        ? serviceCatalog
+            .filter((s) => s.parent_code === matchedService.code)
+            .sort((a, b) => a.position - b.position)
+        : [],
+    [serviceCatalog, matchedService]
+  );
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!clientName.trim() || !etapa.trim()) {
-      setError("Preencha ao menos o cliente e a etapa.");
+    if (!clientName.trim() || !servico.trim()) {
+      setError("Preencha ao menos o cliente e o serviço.");
       return;
     }
     setSaving(true);
@@ -71,34 +92,48 @@ export function NewServiceModal({
         }
       }
 
-      const task = await createTask(supabase, {
-        clientId: client.id,
-        title: etapa.trim(),
-        service: servico.trim() || null,
-        osNumber: osNumber ? Number(osNumber) : null,
-        status,
-        createdBy: currentUserId,
-      });
+      const serviceName = matchedService ? matchedService.name : servico.trim();
+      const titles =
+        matchedSteps.length > 0
+          ? matchedSteps.map((step) => `${step.code} ${step.name}`)
+          : [serviceName];
 
       const patch: Partial<Task> = {};
       if (assigneeId) patch.assignee_id = assigneeId;
       if (assigneeName) patch.assignee_name = assigneeName;
       if (dueDate) patch.due_date = dueDate;
       if (observation.trim()) patch.observation = observation.trim();
-      if (Object.keys(patch).length > 0) {
-        await supabase.from("tasks").update(patch).eq("id", task.id);
-        Object.assign(task, patch);
+
+      const createdTasks: Task[] = [];
+      for (const title of titles) {
+        const task = await createTask(supabase, {
+          clientId: client.id,
+          title,
+          service: serviceName,
+          osNumber: osNumber ? Number(osNumber) : null,
+          status,
+          createdBy: currentUserId,
+        });
+        if (Object.keys(patch).length > 0) {
+          await supabase.from("tasks").update(patch).eq("id", task.id);
+          Object.assign(task, patch);
+        }
+        createdTasks.push(task);
       }
 
+      const firstTask = createdTasks[0];
       for (const file of files) {
-        const path = `${task.id}/${Date.now()}-${file.name}`;
+        const path = `${firstTask.id}/${Date.now()}-${file.name}`;
         const { error: uploadError } = await supabase.storage.from("attachments").upload(path, file);
         if (!uploadError) {
-          await addAttachment(supabase, task.id, currentUserId, file.name, path);
+          await addAttachment(supabase, firstTask.id, currentUserId, file.name, path);
         }
       }
 
-      onCreated(task, client, isNewClient);
+      for (const task of createdTasks) {
+        onCreated(task, client, isNewClient);
+        isNewClient = false;
+      }
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao salvar.");
@@ -146,22 +181,24 @@ export function NewServiceModal({
             )}
           </Field>
 
-          <Field label="Etapa" required>
+          <Field label="Serviço" required>
             <input
-              value={etapa}
-              onChange={(e) => setEtapa(e.target.value)}
-              placeholder="Ex: Topografia"
-              className="w-full rounded-md border border-neutral-300 px-3 py-1.5 text-sm outline-none focus:border-neutral-900"
-            />
-          </Field>
-
-          <Field label="Serviço">
-            <input
+              list="service-options"
               value={servico}
               onChange={(e) => setServico(e.target.value)}
-              placeholder="Ex: Usucapião Extrajudicial"
+              placeholder="Ex: Desmembramento - Urbano"
               className="w-full rounded-md border border-neutral-300 px-3 py-1.5 text-sm outline-none focus:border-neutral-900"
             />
+            <datalist id="service-options">
+              {topLevelServices.map((s) => (
+                <option key={s.code} value={s.name} />
+              ))}
+            </datalist>
+            {matchedSteps.length > 0 && (
+              <p className="mt-1 text-xs text-neutral-500">
+                Serão lançadas {matchedSteps.length} etapas automaticamente: {matchedSteps.map((s) => s.code).join(", ")}
+              </p>
+            )}
           </Field>
 
           <div className="grid grid-cols-2 gap-3">
