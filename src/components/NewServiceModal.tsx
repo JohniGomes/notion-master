@@ -196,7 +196,7 @@ export function NewServiceModal({
             </datalist>
             {matchedSteps.length > 0 && (
               <p className="mt-1 text-xs text-neutral-500">
-                Serão lançadas {matchedSteps.length} etapas automaticamente: {matchedSteps.map((s) => s.code).join(", ")}
+                Serão lançadas {matchedSteps.length} etapas automaticamente: {matchedSteps.map((s) => s.name).join(", ")}
               </p>
             )}
           </Field>
