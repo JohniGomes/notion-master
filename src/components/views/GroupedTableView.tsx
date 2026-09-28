@@ -8,20 +8,25 @@ import type { Client } from "@/lib/supabase/types";
 import { buildTaskTree, type TaskWithAssignee } from "@/lib/data/tasks";
 import { TableRow } from "@/components/views/TableView";
 
+export type ClientGroup = {
+  key: string;
+  client: Client;
+  osNumber: number | null;
+  tasks: TaskWithAssignee[];
+};
+
 export function GroupedTableView({
-  clients,
-  tasksByClient,
+  groups,
   onOpenTask,
   onDeleteTask,
-  onDeleteClient,
-  onAddTaskToClient,
+  onDeleteGroup,
+  onAddTaskToGroup,
 }: {
-  clients: Client[];
-  tasksByClient: Map<string, TaskWithAssignee[]>;
+  groups: ClientGroup[];
   onOpenTask: (taskId: string) => void;
   onDeleteTask: (taskId: string) => void;
-  onDeleteClient: (clientId: string) => void;
-  onAddTaskToClient: (client: Client) => void;
+  onDeleteGroup: (client: Client, osNumber: number | null, tasks: TaskWithAssignee[]) => void;
+  onAddTaskToGroup: (client: Client, osNumber: number | null) => void;
 }) {
   return (
     <div className="overflow-x-auto px-6 py-4">
@@ -38,18 +43,17 @@ export function GroupedTableView({
           </tr>
         </thead>
         <tbody>
-          {clients.map((client) => (
-            <ClientGroup
-              key={client.id}
-              client={client}
-              tasks={tasksByClient.get(client.id) ?? []}
+          {groups.map((group) => (
+            <ClientGroupRow
+              key={group.key}
+              group={group}
               onOpenTask={onOpenTask}
               onDeleteTask={onDeleteTask}
-              onDeleteClient={onDeleteClient}
-              onAddTaskToClient={onAddTaskToClient}
+              onDeleteGroup={onDeleteGroup}
+              onAddTaskToGroup={onAddTaskToGroup}
             />
           ))}
-          {clients.length === 0 && (
+          {groups.length === 0 && (
             <tr>
               <td colSpan={7} className="py-8 text-center text-neutral-400">
                 Nenhum cliente encontrado.
@@ -62,21 +66,20 @@ export function GroupedTableView({
   );
 }
 
-function ClientGroup({
-  client,
-  tasks,
+function ClientGroupRow({
+  group,
   onOpenTask,
   onDeleteTask,
-  onDeleteClient,
-  onAddTaskToClient,
+  onDeleteGroup,
+  onAddTaskToGroup,
 }: {
-  client: Client;
-  tasks: TaskWithAssignee[];
+  group: ClientGroup;
   onOpenTask: (taskId: string) => void;
   onDeleteTask: (taskId: string) => void;
-  onDeleteClient: (clientId: string) => void;
-  onAddTaskToClient: (client: Client) => void;
+  onDeleteGroup: (client: Client, osNumber: number | null, tasks: TaskWithAssignee[]) => void;
+  onAddTaskToGroup: (client: Client, osNumber: number | null) => void;
 }) {
+  const { client, osNumber, tasks } = group;
   const [expanded, setExpanded] = useState(false);
   const tree = buildTaskTree(tasks);
 
@@ -93,6 +96,11 @@ function ClientGroup({
               <ChevronRight size={15} className={clsx("transition", expanded && "rotate-90")} />
             </button>
             <span className="font-semibold text-neutral-900">{client.name}</span>
+            {osNumber != null && (
+              <span className="rounded-full bg-neutral-200 px-2 py-0.5 text-xs font-medium text-neutral-600">
+                O.S {osNumber}
+              </span>
+            )}
             <span className="text-xs text-neutral-400">({tasks.length})</span>
             {total > 0 && (
               <span
@@ -117,12 +125,13 @@ function ClientGroup({
         <td className="py-2 pr-2 text-right">
           <button
             onClick={() => {
-              if (confirm(`Excluir o cliente "${client.name}" e todas as suas ${tasks.length} etapas?`)) {
-                onDeleteClient(client.id);
+              const label = osNumber != null ? `${client.name} (O.S ${osNumber})` : client.name;
+              if (confirm(`Excluir "${label}" e todas as suas ${tasks.length} etapas?`)) {
+                onDeleteGroup(client, osNumber, tasks);
               }
             }}
             className="text-neutral-300 opacity-0 hover:text-red-500 group-hover:opacity-100"
-            title="Excluir cliente"
+            title="Excluir"
           >
             <Trash2 size={14} />
           </button>
@@ -137,7 +146,7 @@ function ClientGroup({
           <tr>
             <td colSpan={7} className="py-1 pl-7">
               <button
-                onClick={() => onAddTaskToClient(client)}
+                onClick={() => onAddTaskToGroup(client, osNumber)}
                 className="flex items-center gap-1 py-1 text-xs text-neutral-400 hover:text-neutral-700"
               >
                 <Plus size={12} /> Nova etapa

@@ -43,6 +43,7 @@ export function SpacePageClient({
   const [sortKey, setSortKey] = useState<SortKey>("title");
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const [modalClient, setModalClient] = useState<Client | "new" | null>(null);
+  const [modalOsNumber, setModalOsNumber] = useState<number | null>(null);
 
   const filteredTasks = useMemo(() => {
     let list = tasks;
@@ -89,13 +90,38 @@ export function SpacePageClient({
     return clients.filter((c) => idsWithMatch.has(c.id));
   }, [clients, filteredTasks, isFiltering]);
 
-  const tasksByClient = useMemo(() => {
-    const map = new Map<string, TaskWithAssignee[]>();
+  const clientGroups = useMemo(() => {
+    const byClient = new Map<string, TaskWithAssignee[]>();
     filteredTasks.forEach((t) => {
-      map.set(t.client_id, [...(map.get(t.client_id) ?? []), t]);
+      byClient.set(t.client_id, [...(byClient.get(t.client_id) ?? []), t]);
     });
-    return map;
-  }, [filteredTasks]);
+
+    const groups: { key: string; client: Client; osNumber: number | null; tasks: TaskWithAssignee[] }[] = [];
+    clientsWithMatches.forEach((client) => {
+      const clientTasks = byClient.get(client.id) ?? [];
+      const byOs = new Map<string, TaskWithAssignee[]>();
+      clientTasks.forEach((t) => {
+        const key = t.os_number != null ? String(t.os_number) : "sem-os";
+        byOs.set(key, [...(byOs.get(key) ?? []), t]);
+      });
+
+      if (byOs.size === 0) {
+        groups.push({ key: client.id, client, osNumber: null, tasks: [] });
+      } else {
+        Array.from(byOs.entries())
+          .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+          .forEach(([key, groupTasks]) => {
+            groups.push({
+              key: `${client.id}-${key}`,
+              client,
+              osNumber: key === "sem-os" ? null : Number(key),
+              tasks: groupTasks,
+            });
+          });
+      }
+    });
+    return groups;
+  }, [clientsWithMatches, filteredTasks]);
 
   const openTask = tasks.find((t) => t.id === openTaskId) ?? null;
 
@@ -139,6 +165,24 @@ export function SpacePageClient({
     }
   }
 
+  async function handleDeleteClientGroup(client: Client, osNumber: number | null, groupTasks: TaskWithAssignee[]) {
+    const groupTaskIds = new Set(groupTasks.map((t) => t.id));
+    const hasOtherGroups = tasks.some((t) => t.client_id === client.id && !groupTaskIds.has(t.id));
+
+    if (!hasOtherGroups) {
+      await handleDeleteClient(client.id);
+      return;
+    }
+
+    setTasks((prev) => prev.filter((t) => !groupTaskIds.has(t.id)));
+    await Promise.all(groupTasks.map((t) => deleteTask(supabase, t.id)));
+
+    showUndo(`Etapas da O.S ${osNumber ?? "—"} de "${client.name}" excluídas.`, async () => {
+      await Promise.all(groupTasks.map((t) => restoreTask(supabase, t.id)));
+      setTasks((prev) => [...prev, ...groupTasks]);
+    });
+  }
+
   function handleTaskCreated(task: Task, client: Client, isNewClient: boolean) {
     if (isNewClient) setClients((prev) => [...prev, client].sort((a, b) => a.name.localeCompare(b.name)));
     const assignee = profiles.find((p) => p.id === task.assignee_id) ?? null;
@@ -156,7 +200,10 @@ export function SpacePageClient({
       <div className="flex items-center justify-between px-6 pt-4">
         <h1 className="text-2xl font-semibold text-neutral-900">{space.name}</h1>
         <button
-          onClick={() => setModalClient("new")}
+          onClick={() => {
+            setModalClient("new");
+            setModalOsNumber(null);
+          }}
           className="flex items-center gap-1.5 rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700"
         >
           <Plus size={15} /> Novo Serviço
@@ -179,12 +226,14 @@ export function SpacePageClient({
 
       {view === "table" && (
         <GroupedTableView
-          clients={clientsWithMatches}
-          tasksByClient={tasksByClient}
+          groups={clientGroups}
           onOpenTask={setOpenTaskId}
           onDeleteTask={handleDeleteTask}
-          onDeleteClient={handleDeleteClient}
-          onAddTaskToClient={(client) => setModalClient(client)}
+          onDeleteGroup={handleDeleteClientGroup}
+          onAddTaskToGroup={(client, osNumber) => {
+            setModalClient(client);
+            setModalOsNumber(osNumber);
+          }}
         />
       )}
       {view === "board" && (
@@ -216,7 +265,11 @@ export function SpacePageClient({
           profiles={profiles}
           currentUserId={currentUserId}
           fixedClient={modalClient === "new" ? undefined : modalClient}
-          onClose={() => setModalClient(null)}
+          fixedOsNumber={modalOsNumber}
+          onClose={() => {
+            setModalClient(null);
+            setModalOsNumber(null);
+          }}
           onCreated={handleTaskCreated}
         />
       )}

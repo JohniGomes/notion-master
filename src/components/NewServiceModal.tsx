@@ -15,6 +15,7 @@ export function NewServiceModal({
   profiles,
   currentUserId,
   fixedClient,
+  fixedOsNumber,
   onClose,
   onCreated,
 }: {
@@ -24,6 +25,8 @@ export function NewServiceModal({
   currentUserId: string;
   /** Quando aberto a partir de um cliente específico, pula a etapa de escolher/criar cliente. */
   fixedClient?: Client;
+  /** Quando aberto a partir de um grupo Cliente + O.S existente, pré-preenche a O.S. */
+  fixedOsNumber?: number | null;
   onClose: () => void;
   onCreated: (task: Task, client: Client, isNewClient: boolean) => void;
 }) {
@@ -33,7 +36,7 @@ export function NewServiceModal({
   const [clientName, setClientName] = useState(fixedClient?.name ?? "");
   const [etapa, setEtapa] = useState("");
   const [servico, setServico] = useState("");
-  const [osNumber, setOsNumber] = useState("");
+  const [osNumber, setOsNumber] = useState(fixedOsNumber ? String(fixedOsNumber) : "");
   const [status, setStatus] = useState<TaskStatus>("not_started");
   const [assigneeId, setAssigneeId] = useState<string | null>(null);
   const [assigneeName, setAssigneeName] = useState<string | null>(null);
