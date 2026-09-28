@@ -49,9 +49,15 @@ export function SpacePageClient({
 
     if (search.trim()) {
       const q = search.toLowerCase();
-      list = list.filter(
-        (t) => t.title.toLowerCase().includes(q) || t.service?.toLowerCase().includes(q)
-      );
+      const clientsById = new Map(clients.map((c) => [c.id, c]));
+      list = list.filter((t) => {
+        const clientName = clientsById.get(t.client_id)?.name ?? "";
+        return (
+          t.title.toLowerCase().includes(q) ||
+          t.service?.toLowerCase().includes(q) ||
+          clientName.toLowerCase().includes(q)
+        );
+      });
     }
     if (statusFilter !== "all") list = list.filter((t) => t.status === statusFilter);
     if (assigneeFilter !== "all") list = list.filter((t) => assigneeDisplay(t) === assigneeFilter);
@@ -61,7 +67,7 @@ export function SpacePageClient({
       if (sortKey === "due_date") return (a.due_date ?? "").localeCompare(b.due_date ?? "");
       return a.title.localeCompare(b.title);
     });
-  }, [tasks, search, statusFilter, assigneeFilter, sortKey]);
+  }, [tasks, clients, search, statusFilter, assigneeFilter, sortKey]);
 
   const assigneeOptions = useMemo(() => {
     const names = new Set<string>();
