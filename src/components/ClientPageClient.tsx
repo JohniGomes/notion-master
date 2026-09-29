@@ -51,7 +51,10 @@ export function ClientPageClient({
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(
-        (t) => t.title.toLowerCase().includes(q) || t.service?.toLowerCase().includes(q)
+        (t) =>
+          t.title.toLowerCase().includes(q) ||
+          t.service?.toLowerCase().includes(q) ||
+          String(t.os_number ?? "").includes(q)
       );
     }
     if (statusFilter !== "all") {

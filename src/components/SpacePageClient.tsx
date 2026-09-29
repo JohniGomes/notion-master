@@ -59,7 +59,8 @@ export function SpacePageClient({
         return (
           t.title.toLowerCase().includes(q) ||
           t.service?.toLowerCase().includes(q) ||
-          clientName.toLowerCase().includes(q)
+          clientName.toLowerCase().includes(q) ||
+          String(t.os_number ?? "").includes(q)
         );
       });
     }
