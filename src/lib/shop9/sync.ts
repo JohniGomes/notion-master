@@ -119,9 +119,11 @@ async function main() {
              fc.Data_Vencimento AS data_vencimento, fc.Data_Quitacao AS data_quitacao,
              fc.Valor_Total AS valor_total, fc.Valor_Quitado AS valor_quitado,
              fc.Valor_Final_Calculado AS valor_pendente,
-             p3.Codigo AS plano_codigo, p3.Nome AS plano_nome
+             p3.Codigo AS plano_codigo, p3.Nome AS plano_nome,
+             fc.Descricao AS descricao, cf.Nome AS parceiro
       FROM Financeiro_Contas fc
       LEFT JOIN Plano_Contas3 p3 ON p3.Ordem = fc.Ordem_Plano_Contas3
+      LEFT JOIN Cli_For cf ON cf.Ordem = fc.Ordem_Cli_For
       WHERE fc.Tipo_Conta = 'R' AND fc.Situacao <> 'C'
     `)
   ).recordset;
@@ -171,6 +173,8 @@ async function main() {
       plano_codigo: c.plano_codigo == null ? null : Number(c.plano_codigo),
       plano_nome: c.plano_nome == null ? null : String(c.plano_nome).trim(),
       servicos: String(c.pagar_receber) === "R" ? servicosDaConta(Number(c.ordem)) : null,
+      descricao: c.descricao == null ? null : String(c.descricao).trim(),
+      parceiro: c.parceiro == null ? null : String(c.parceiro).trim(),
       synced_at: startedAt,
     })),
     "ordem"

@@ -52,7 +52,7 @@ export async function loadFinanceData(supabase: SB) {
   const contas = await fetchAll<Shop9Conta>(
     supabase,
     "shop9_contas",
-    "ordem, pagar_receber, situacao, data_vencimento, data_quitacao, valor_total, valor_quitado, valor_pendente, plano_codigo, plano_nome, servicos",
+    "ordem, pagar_receber, situacao, data_vencimento, data_quitacao, valor_total, valor_quitado, valor_pendente, plano_codigo, plano_nome, servicos, descricao, parceiro",
     "ordem"
   );
   return contas.map((c) => ({

@@ -13,6 +13,7 @@ export const C = {
   green: "#12A150",
   red: "#E03B30",
   gray: "#8C8C8C",
+  overdue: "#EE9D95",
 };
 
 export const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });

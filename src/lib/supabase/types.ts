@@ -58,6 +58,8 @@ export interface Shop9Conta {
   plano_nome: string | null;
   /** Servicos da venda ligada ao recebimento; f = fracao do valor. */
   servicos: { n: string; f: number }[] | null;
+  descricao: string | null;
+  parceiro: string | null;
 }
 
 export interface Shop9Lookup {
