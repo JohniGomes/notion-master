@@ -38,12 +38,14 @@ export function StatCard({
   value,
   valueColor = C.gold,
   delta,
+  aside,
   children,
 }: {
   label: string;
   value: string;
   valueColor?: string;
   delta?: ReactNode;
+  aside?: ReactNode;
   children?: ReactNode;
 }) {
   return (
@@ -54,8 +56,11 @@ export function StatCard({
       >
         {label}
       </span>
-      <div className="text-2xl font-semibold tracking-tight" style={{ color: valueColor }}>
-        {value}
+      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
+        <div className="text-2xl font-semibold tracking-tight" style={{ color: valueColor }}>
+          {value}
+        </div>
+        {aside && <div className="min-w-[8.5rem] flex-1 sm:flex-none">{aside}</div>}
       </div>
       {children && <div className="mt-1 text-xs">{children}</div>}
       {delta && (
@@ -63,6 +68,22 @@ export function StatCard({
           {delta}
         </div>
       )}
+    </div>
+  );
+}
+
+// Indicadores a direita do valor: cada linha com o titulo e o numero juntos.
+export function StatRows({ items }: { items: { label: string; value: string; color?: string }[] }) {
+  return (
+    <div className="space-y-0.5">
+      {items.map((i) => (
+        <div key={i.label} className="flex items-baseline justify-between gap-3 text-xs">
+          <span className="whitespace-nowrap text-neutral-500">{i.label}</span>
+          <span className="whitespace-nowrap font-semibold" style={{ color: i.color ?? C.ink }}>
+            {i.value}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }

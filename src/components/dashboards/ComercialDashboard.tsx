@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import type { Shop9Lookup, Shop9Os, Shop9OsItem } from "@/lib/supabase/types";
 import { useDateFilters } from "@/components/dashboards/DateFilters";
 import { ComboChart } from "@/components/dashboards/ComboChart";
-import { brl, C, DashHeader, Delta, MiniStats, Panel, StatCard } from "@/components/dashboards/theme";
+import { brl, C, DashHeader, Delta, Panel, StatCard, StatRows } from "@/components/dashboards/theme";
 
 // Nomes dos tipos de O.S no Shop9 (Configuracoes_Ordem_Servico_Tipos).
 const TIPO_ORCAMENTO = "Orçamento";
@@ -122,18 +122,19 @@ export function ComercialDashboard({
               <Delta current={kpis.orcado.valor} previous={prev.orcado.valor} label={previous.label} format={brl.format} />
             )
           }
-        >
-          <MiniStats
-            items={[
-              { label: "O.S", value: String(kpis.orcado.qtd) },
-              {
-                label: "Não aprovado",
-                value: `${kpis.naoAprovado.qtd} · ${brl.format(kpis.naoAprovado.valor)}`,
-                color: C.red,
-              },
-            ]}
-          />
-        </StatCard>
+          aside={
+            <StatRows
+              items={[
+                { label: "O.S", value: String(kpis.orcado.qtd) },
+                {
+                  label: "Não aprovado",
+                  value: `${kpis.naoAprovado.qtd} · ${brl.format(kpis.naoAprovado.valor)}`,
+                  color: C.red,
+                },
+              ]}
+            />
+          }
+        />
         <StatCard
           label="Aprovado"
           value={brl.format(kpis.aprovado.valor)}
@@ -142,14 +143,15 @@ export function ComercialDashboard({
               <Delta current={kpis.aprovado.valor} previous={prev.aprovado.valor} label={previous.label} format={brl.format} />
             )
           }
-        >
-          <MiniStats
-            items={[
-              { label: "O.S", value: String(kpis.aprovado.qtd) },
-              { label: "% do total", value: pct(kpis.aprovado.qtd), color: C.green },
-            ]}
-          />
-        </StatCard>
+          aside={
+            <StatRows
+              items={[
+                { label: "O.S", value: String(kpis.aprovado.qtd) },
+                { label: "% do total", value: pct(kpis.aprovado.qtd), color: C.green },
+              ]}
+            />
+          }
+        />
         <StatCard
           label="Em Aprovação"
           value={brl.format(kpis.emAprovacao.valor)}
@@ -164,14 +166,15 @@ export function ComercialDashboard({
               />
             )
           }
-        >
-          <MiniStats
-            items={[
-              { label: "O.S", value: String(kpis.emAprovacao.qtd) },
-              { label: "% do total", value: pct(kpis.emAprovacao.qtd), color: C.green },
-            ]}
-          />
-        </StatCard>
+          aside={
+            <StatRows
+              items={[
+                { label: "O.S", value: String(kpis.emAprovacao.qtd) },
+                { label: "% do total", value: pct(kpis.emAprovacao.qtd), color: C.green },
+              ]}
+            />
+          }
+        />
         <StatCard
           label="Ticket Médio"
           value={brl.format(kpis.ticket)}
@@ -180,14 +183,15 @@ export function ComercialDashboard({
               <Delta current={kpis.ticket} previous={prev.ticket} label={previous.label} format={brl.format} />
             )
           }
-        >
-          <MiniStats
-            items={[
-              { label: "Clientes", value: String(kpis.clientes) },
-              { label: "O.S", value: String(kpis.orcado.qtd) },
-            ]}
-          />
-        </StatCard>
+          aside={
+            <StatRows
+              items={[
+                { label: "Clientes", value: String(kpis.clientes) },
+                { label: "O.S", value: String(kpis.orcado.qtd) },
+              ]}
+            />
+          }
+        />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
