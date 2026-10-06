@@ -1,7 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/accept-invite", "/reset-password", "/auth"];
+// /api/cron/* é chamado pelo Vercel Cron sem sessão; cada rota se protege com CRON_SECRET.
+const PUBLIC_PATHS = ["/login", "/accept-invite", "/reset-password", "/auth", "/api/cron"];
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
