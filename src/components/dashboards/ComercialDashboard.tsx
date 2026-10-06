@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import type { Shop9Lookup, Shop9Os, Shop9OsItem } from "@/lib/supabase/types";
 import { useDateFilters } from "@/components/dashboards/DateFilters";
 import { ComboChart } from "@/components/dashboards/ComboChart";
-import { brl, C, DashHeader, Delta, Panel, StatCard } from "@/components/dashboards/theme";
+import { brl, C, DashHeader, Delta, MiniStats, Panel, StatCard } from "@/components/dashboards/theme";
 
 // Nomes dos tipos de O.S no Shop9 (Configuracoes_Ordem_Servico_Tipos).
 const TIPO_ORCAMENTO = "Orçamento";
@@ -123,13 +123,16 @@ export function ComercialDashboard({
             )
           }
         >
-          <div className="font-semibold text-neutral-800">{kpis.orcado.qtd} O.S</div>
-          <div className="mt-0.5">
-            <span className="font-semibold text-neutral-800">Não aprovado </span>
-            <span style={{ color: C.red }}>
-              {kpis.naoAprovado.qtd} · {brl.format(kpis.naoAprovado.valor)}
-            </span>
-          </div>
+          <MiniStats
+            items={[
+              { label: "O.S", value: String(kpis.orcado.qtd) },
+              {
+                label: "Não aprovado",
+                value: `${kpis.naoAprovado.qtd} · ${brl.format(kpis.naoAprovado.valor)}`,
+                color: C.red,
+              },
+            ]}
+          />
         </StatCard>
         <StatCard
           label="Aprovado"
@@ -140,10 +143,12 @@ export function ComercialDashboard({
             )
           }
         >
-          <div className="flex items-center justify-between">
-            <span className="font-semibold text-neutral-800">{kpis.aprovado.qtd} O.S</span>
-            <span style={{ color: C.green }}>{pct(kpis.aprovado.qtd)}</span>
-          </div>
+          <MiniStats
+            items={[
+              { label: "O.S", value: String(kpis.aprovado.qtd) },
+              { label: "% do total", value: pct(kpis.aprovado.qtd), color: C.green },
+            ]}
+          />
         </StatCard>
         <StatCard
           label="Em Aprovação"
@@ -160,10 +165,12 @@ export function ComercialDashboard({
             )
           }
         >
-          <div className="flex items-center justify-between">
-            <span className="font-semibold text-neutral-800">{kpis.emAprovacao.qtd} O.S</span>
-            <span style={{ color: C.green }}>{pct(kpis.emAprovacao.qtd)}</span>
-          </div>
+          <MiniStats
+            items={[
+              { label: "O.S", value: String(kpis.emAprovacao.qtd) },
+              { label: "% do total", value: pct(kpis.emAprovacao.qtd), color: C.green },
+            ]}
+          />
         </StatCard>
         <StatCard
           label="Ticket Médio"
@@ -174,10 +181,12 @@ export function ComercialDashboard({
             )
           }
         >
-          <div className="flex items-center justify-between">
-            <span className="font-semibold text-neutral-800">Qtd Clientes</span>
-            <span style={{ color: C.green }}>{kpis.clientes}</span>
-          </div>
+          <MiniStats
+            items={[
+              { label: "Clientes", value: String(kpis.clientes) },
+              { label: "O.S", value: String(kpis.orcado.qtd) },
+            ]}
+          />
         </StatCard>
       </div>
 

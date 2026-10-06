@@ -67,6 +67,22 @@ export function StatCard({
   );
 }
 
+// Indicadores secundarios do cartao: titulo pequeno em cima de cada numero, em colunas iguais.
+export function MiniStats({ items }: { items: { label: string; value: string; color?: string }[] }) {
+  return (
+    <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
+      {items.map((i) => (
+        <div key={i.label} className="min-w-0">
+          <div className="truncate text-[10px] uppercase tracking-wide text-neutral-500">{i.label}</div>
+          <div className="truncate text-sm font-semibold" style={{ color: i.color ?? C.ink }}>
+            {i.value}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const pctFmt = (v: number) => `${(Math.abs(v) * 100).toFixed(1).replace(".", ",")}%`;
 
 /**
