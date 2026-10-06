@@ -4,7 +4,9 @@ import { getSpace } from "@/lib/data/spaces";
 import { listClients } from "@/lib/data/clients";
 import { listTasksBySpace } from "@/lib/data/tasks";
 import { listServiceCatalog } from "@/lib/data/serviceCatalog";
+import { loadCommercialData } from "@/lib/data/shop9";
 import { SpacePageClient } from "@/components/SpacePageClient";
+import { ComercialDashboard } from "@/components/dashboards/ComercialDashboard";
 
 export default async function SpacePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -12,6 +14,16 @@ export default async function SpacePage({ params }: { params: Promise<{ id: stri
 
   const space = await getSpace(supabase, id);
   if (!space) notFound();
+
+  if (space.kind === "dashboards") {
+    const data = await loadCommercialData(supabase);
+    return (
+      <div>
+        <h1 className="px-6 pt-6 text-2xl font-semibold text-neutral-900">{space.name}</h1>
+        <ComercialDashboard {...data} />
+      </div>
+    );
+  }
 
   const [clients, tasks, serviceCatalog, { data: profiles }, {
     data: { user },

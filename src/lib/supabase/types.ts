@@ -17,6 +17,38 @@ export interface Space {
   updated_at: string;
   deleted_at: string | null;
   is_default: boolean;
+  kind: "tasks" | "dashboards";
+  restricted_to_email: string | null;
+}
+
+export interface Shop9Os {
+  ordem: number;
+  numero: number | null;
+  ordem_movimento: number;
+  cliente: string | null;
+  tipo_ordem: number | null;
+  situacao_ordem: number | null;
+  aprovado: boolean;
+  fechada: boolean;
+  cancelada: boolean;
+  valor_total: number;
+  data_gravacao: string | null;
+  prazo: string | null;
+}
+
+export interface Shop9OsItem {
+  ordem: number;
+  ordem_movimento: number;
+  servico_codigo: number | null;
+  servico_nome: string | null;
+  preco_final: number;
+  tecnico: string | null;
+}
+
+export interface Shop9Lookup {
+  ordem: number;
+  nome: string;
+  final?: boolean;
 }
 
 export interface Client {
