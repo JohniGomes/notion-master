@@ -112,7 +112,69 @@ async function main() {
     `)
   ).recordset;
 
+  // Contas: so parcelas reais (Tipo_Conta = 'R'); 'A' sao contas-pai e recebimentos duplicados.
+  const contas = (
+    await pool.request().query<Row>(`
+      SELECT fc.Ordem AS ordem, fc.Pagar_Receber AS pagar_receber, fc.Situacao AS situacao,
+             fc.Data_Vencimento AS data_vencimento, fc.Data_Quitacao AS data_quitacao,
+             fc.Valor_Total AS valor_total, fc.Valor_Quitado AS valor_quitado,
+             fc.Valor_Final_Calculado AS valor_pendente,
+             p3.Codigo AS plano_codigo, p3.Nome AS plano_nome
+      FROM Financeiro_Contas fc
+      LEFT JOIN Plano_Contas3 p3 ON p3.Ordem = fc.Ordem_Plano_Contas3
+      WHERE fc.Tipo_Conta = 'R' AND fc.Situacao <> 'C'
+    `)
+  ).recordset;
+
+  // Servicos de cada recebimento: a parcela aponta para a conta-pai (Ordem_Pai), que e a
+  // conta da venda (Movimento.Ordem_Financeiro); os itens da venda sao os servicos.
+  const links = (
+    await pool.request().query<Row>(`
+      SELECT fc.Ordem AS conta, ps.Nome AS servico_nome, SUM(mps.Preco_Final) AS valor
+      FROM Financeiro_Contas fc
+      JOIN Movimento m ON m.Ordem_Financeiro = fc.Ordem_Pai
+      JOIN Movimento_Prod_Serv mps ON mps.Ordem_Movimento = m.Ordem AND ISNULL(mps.Linha_Excluida, 0) = 0
+      JOIN Prod_Serv ps ON ps.Ordem = mps.Ordem_Prod_Serv
+      WHERE fc.Pagar_Receber = 'R' AND fc.Tipo_Conta = 'R' AND fc.Situacao <> 'C' AND fc.Ordem_Pai > 0
+      GROUP BY fc.Ordem, ps.Nome
+    `)
+  ).recordset;
+
   await pool.close();
+
+  const byConta = new Map<number, { n: string; valor: number }[]>();
+  for (const l of links) {
+    const list = byConta.get(Number(l.conta)) ?? [];
+    list.push({ n: String(l.servico_nome).trim(), valor: Number(l.valor ?? 0) });
+    byConta.set(Number(l.conta), list);
+  }
+  const servicosDaConta = (ordem: number) => {
+    const list = byConta.get(ordem);
+    if (!list || list.length === 0) return null;
+    const total = list.reduce((s, i) => s + i.valor, 0);
+    // Sem valores nos itens, divide por igual entre os servicos.
+    return list.map((i) => ({ n: i.n, f: total > 0 ? i.valor / total : 1 / list.length }));
+  };
+
+  const toDay = (d: unknown) => (d instanceof Date ? d.toISOString().slice(0, 10) : null);
+  await upsert(
+    "shop9_contas",
+    contas.map((c) => ({
+      ordem: Number(c.ordem),
+      pagar_receber: String(c.pagar_receber),
+      situacao: String(c.situacao),
+      data_vencimento: toDay(c.data_vencimento),
+      data_quitacao: toDay(c.data_quitacao),
+      valor_total: Number(c.valor_total ?? 0),
+      valor_quitado: Number(c.valor_quitado ?? 0),
+      valor_pendente: Number(c.valor_pendente ?? 0),
+      plano_codigo: c.plano_codigo == null ? null : Number(c.plano_codigo),
+      plano_nome: c.plano_nome == null ? null : String(c.plano_nome).trim(),
+      servicos: String(c.pagar_receber) === "R" ? servicosDaConta(Number(c.ordem)) : null,
+      synced_at: startedAt,
+    })),
+    "ordem"
+  );
 
   const validMovimentos = new Set(ordens.map((o) => Number(o.ordem_movimento)));
   const toIso = (d: unknown) => (d instanceof Date ? d.toISOString() : null);
@@ -159,7 +221,7 @@ async function main() {
   );
 
   // Remove o que deixou de existir no Shop9 (apagado ou fora do filtro).
-  for (const table of ["shop9_os", "shop9_os_itens"]) {
+  for (const table of ["shop9_os", "shop9_os_itens", "shop9_contas"]) {
     const { error } = await supabase.from(table).delete().lt("synced_at", startedAt);
     if (error) throw new Error(`limpeza ${table}: ${error.message}`);
   }

@@ -4,9 +4,9 @@ import { getSpace } from "@/lib/data/spaces";
 import { listClients } from "@/lib/data/clients";
 import { listTasksBySpace } from "@/lib/data/tasks";
 import { listServiceCatalog } from "@/lib/data/serviceCatalog";
-import { loadCommercialData } from "@/lib/data/shop9";
+import { loadCommercialData, loadFinanceData, loadPeopleData } from "@/lib/data/shop9";
 import { SpacePageClient } from "@/components/SpacePageClient";
-import { ComercialDashboard } from "@/components/dashboards/ComercialDashboard";
+import { DashboardTabs } from "@/components/dashboards/DashboardTabs";
 
 export default async function SpacePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -16,11 +16,16 @@ export default async function SpacePage({ params }: { params: Promise<{ id: stri
   if (!space) notFound();
 
   if (space.kind === "dashboards") {
-    const data = await loadCommercialData(supabase);
+    const [commercial, contas, tasks] = await Promise.all([
+      loadCommercialData(supabase),
+      // Tolerante: ate a migration 09 ser aplicada, o financeiro aparece vazio.
+      loadFinanceData(supabase).catch(() => []),
+      loadPeopleData(supabase),
+    ]);
     return (
       <div>
         <h1 className="px-6 pt-6 text-2xl font-semibold text-neutral-900">{space.name}</h1>
-        <ComercialDashboard {...data} />
+        <DashboardTabs contas={contas} commercial={commercial} tasks={tasks} />
       </div>
     );
   }

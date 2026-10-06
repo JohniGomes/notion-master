@@ -45,6 +45,21 @@ export interface Shop9OsItem {
   tecnico: string | null;
 }
 
+export interface Shop9Conta {
+  ordem: number;
+  pagar_receber: "P" | "R";
+  situacao: string;
+  data_vencimento: string | null;
+  data_quitacao: string | null;
+  valor_total: number;
+  valor_quitado: number;
+  valor_pendente: number;
+  plano_codigo: number | null;
+  plano_nome: string | null;
+  /** Servicos da venda ligada ao recebimento; f = fracao do valor. */
+  servicos: { n: string; f: number }[] | null;
+}
+
 export interface Shop9Lookup {
   ordem: number;
   nome: string;

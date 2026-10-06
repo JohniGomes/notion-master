@@ -1,0 +1,61 @@
+"use client";
+
+import { useCallback, useMemo, useState } from "react";
+import { ChipGroup, MONTHS, toggleIn } from "@/components/dashboards/theme";
+
+// Filtros de Dia / Mes / Ano em varios-ao-mesmo-tempo (vazio = sem filtro).
+export function useDateFilters(years: string[], defaultYear?: string) {
+  const [days, setDays] = useState<Set<string>>(new Set());
+  const [months, setMonths] = useState<Set<string>>(new Set());
+  const [selectedYears, setSelectedYears] = useState<Set<string>>(
+    new Set(defaultYear ? [defaultYear] : [])
+  );
+
+  const matches = useCallback(
+    (iso: string | null | undefined) => {
+      if (!iso) return false;
+      const year = iso.slice(0, 4);
+      const month = iso.slice(5, 7);
+      const day = String(Number(iso.slice(8, 10)));
+      if (selectedYears.size > 0 && !selectedYears.has(year)) return false;
+      if (months.size > 0 && !months.has(month)) return false;
+      if (days.size > 0 && !days.has(day)) return false;
+      return true;
+    },
+    [days, months, selectedYears]
+  );
+
+  const ui = useMemo(
+    () => (
+      <div className="grid gap-3 sm:grid-cols-[1.4fr_1.2fr_0.6fr]">
+        <ChipGroup
+          title="Dia"
+          cols={8}
+          options={Array.from({ length: 31 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }))}
+          selected={days}
+          onToggle={(v) => setDays((s) => toggleIn(s, v))}
+          onClear={() => setDays(new Set())}
+        />
+        <ChipGroup
+          title="Mês"
+          cols={4}
+          options={MONTHS.map((m, i) => ({ value: String(i + 1).padStart(2, "0"), label: m }))}
+          selected={months}
+          onToggle={(v) => setMonths((s) => toggleIn(s, v))}
+          onClear={() => setMonths(new Set())}
+        />
+        <ChipGroup
+          title="Ano"
+          cols={1}
+          options={years.map((y) => ({ value: y, label: y }))}
+          selected={selectedYears}
+          onToggle={(v) => setSelectedYears((s) => toggleIn(s, v))}
+          onClear={() => setSelectedYears(new Set())}
+        />
+      </div>
+    ),
+    [days, months, selectedYears, years]
+  );
+
+  return { matches, ui, selectedYears };
+}

@@ -1,24 +1,38 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   Bar,
-  BarChart,
   CartesianGrid,
+  ComposedChart,
+  LabelList,
+  Legend,
+  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
 import type { Shop9Lookup, Shop9Os, Shop9OsItem } from "@/lib/supabase/types";
-
-const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
-const MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+import { useDateFilters } from "@/components/dashboards/DateFilters";
+import { brl, brl2, C, DashTitle, Empty, Panel, StatCard } from "@/components/dashboards/theme";
 
 // Nomes dos tipos de O.S no Shop9 (Configuracoes_Ordem_Servico_Tipos).
 const TIPO_ORCAMENTO = "Orçamento";
 const TIPO_APROVADO = "Contratado";
 const TIPO_NAO_APROVADO = "Não Aprovado";
+
+const label = (v: unknown) => (Number(v) > 0 ? brl.format(Number(v)) : "");
+const trunc = (s: string, n = 24) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
+
+type Bucket = { name: string; label: string; valor: number; qtd: number };
+
+function top(map: Map<string, { valor: number; qtd: number }>, n: number): Bucket[] {
+  return Array.from(map.entries())
+    .map(([name, v]) => ({ name, label: trunc(name), ...v }))
+    .sort((a, b) => b.valor - a.valor)
+    .slice(0, n);
+}
 
 export function ComercialDashboard({
   os,
@@ -31,25 +45,14 @@ export function ComercialDashboard({
   situacoes: Shop9Lookup[];
   tipos: Shop9Lookup[];
 }) {
-  const [year, setYear] = useState<string>("all");
-  const [month, setMonth] = useState<string>("all");
-
   const years = useMemo(
     () =>
       Array.from(new Set(os.map((o) => o.data_gravacao?.slice(0, 4)).filter((y): y is string => !!y))).sort(),
     [os]
   );
+  const { matches, ui } = useDateFilters(years, years.at(-1));
 
-  const filtered = useMemo(
-    () =>
-      os.filter((o) => {
-        if (year !== "all" && o.data_gravacao?.slice(0, 4) !== year) return false;
-        if (month !== "all" && o.data_gravacao?.slice(5, 7) !== month) return false;
-        return true;
-      }),
-    [os, year, month]
-  );
-
+  const filtered = useMemo(() => os.filter((o) => matches(o.data_gravacao)), [os, matches]);
   const tipoNome = useMemo(() => new Map(tipos.map((t) => [t.ordem, t.nome])), [tipos]);
   const situacaoNome = useMemo(() => new Map(situacoes.map((s) => [s.ordem, s.nome])), [situacoes]);
 
@@ -58,186 +61,142 @@ export function ComercialDashboard({
       const list = filtered.filter((o) => tipoNome.get(o.tipo_ordem ?? -1) === nome);
       return { qtd: list.length, valor: list.reduce((s, o) => s + o.valor_total, 0) };
     };
-    const total = { qtd: filtered.length, valor: filtered.reduce((s, o) => s + o.valor_total, 0) };
-    const aprovado = by(TIPO_APROVADO);
+    const orcado = { qtd: filtered.length, valor: filtered.reduce((s, o) => s + o.valor_total, 0) };
+    const clientes = new Set(filtered.map((o) => o.cliente).filter(Boolean)).size;
     return {
-      total,
-      aprovado,
-      orcamento: by(TIPO_ORCAMENTO),
+      orcado,
+      aprovado: by(TIPO_APROVADO),
+      emAprovacao: by(TIPO_ORCAMENTO),
       naoAprovado: by(TIPO_NAO_APROVADO),
-      ticket: aprovado.qtd > 0 ? aprovado.valor / aprovado.qtd : 0,
-      clientes: new Set(filtered.map((o) => o.cliente).filter(Boolean)).size,
+      clientes,
+      ticket: clientes > 0 ? orcado.valor / clientes : 0,
     };
   }, [filtered, tipoNome]);
 
   const bySituacao = useMemo(() => {
-    const map = new Map<string, { nome: string; qtd: number; valor: number }>();
+    const map = new Map<string, { valor: number; qtd: number }>();
     for (const o of filtered) {
       const nome = situacaoNome.get(o.situacao_ordem ?? -1) ?? "Sem situação";
-      const cur = map.get(nome) ?? { nome, qtd: 0, valor: 0 };
-      cur.qtd += 1;
+      const cur = map.get(nome) ?? { valor: 0, qtd: 0 };
       cur.valor += o.valor_total;
+      cur.qtd += 1;
       map.set(nome, cur);
     }
-    return Array.from(map.values()).sort((a, b) => b.valor - a.valor);
+    return top(map, 12);
   }, [filtered, situacaoNome]);
 
   const byServico = useMemo(() => {
     const movimentos = new Set(filtered.map((o) => o.ordem_movimento));
-    const map = new Map<string, { nome: string; valor: number; qtd: number }>();
+    const map = new Map<string, { valor: number; qtd: number }>();
     for (const i of itens) {
       if (!movimentos.has(i.ordem_movimento) || !i.servico_nome) continue;
-      const cur = map.get(i.servico_nome) ?? { nome: i.servico_nome, valor: 0, qtd: 0 };
+      const cur = map.get(i.servico_nome) ?? { valor: 0, qtd: 0 };
       cur.valor += i.preco_final;
       cur.qtd += 1;
       map.set(i.servico_nome, cur);
     }
-    return Array.from(map.values())
-      .sort((a, b) => b.valor - a.valor)
-      .slice(0, 10);
+    return top(map, 10);
   }, [filtered, itens]);
 
   const byCliente = useMemo(() => {
-    const map = new Map<string, { nome: string; valor: number; qtd: number }>();
+    const map = new Map<string, { valor: number; qtd: number }>();
     for (const o of filtered) {
       const nome = o.cliente || "Sem cliente";
-      const cur = map.get(nome) ?? { nome, valor: 0, qtd: 0 };
+      const cur = map.get(nome) ?? { valor: 0, qtd: 0 };
       cur.valor += o.valor_total;
       cur.qtd += 1;
       map.set(nome, cur);
     }
-    return Array.from(map.values())
-      .sort((a, b) => b.valor - a.valor)
-      .slice(0, 15);
+    return top(map, 15);
   }, [filtered]);
 
-  const pct = (part: number) => (kpis.total.qtd > 0 ? `${((part / kpis.total.qtd) * 100).toFixed(1)}%` : "—");
+  const pct = (part: number) =>
+    kpis.orcado.qtd > 0 ? `${((part / kpis.orcado.qtd) * 100).toFixed(2).replace(".", ",")}%` : "—";
 
   return (
-    <div className="px-6 pb-10 pt-4">
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <h2 className="text-lg font-semibold text-neutral-900">Dashboard Comercial</h2>
-        <div className="ml-auto flex gap-2">
-          <select
-            value={year}
-            onChange={(e) => setYear(e.target.value)}
-            className="rounded-md border border-neutral-300 px-2 py-1 text-sm"
-          >
-            <option value="all">Todos os anos</option>
-            {years.map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
-          <select
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
-            className="rounded-md border border-neutral-300 px-2 py-1 text-sm"
-          >
-            <option value="all">Todos os meses</option>
-            {MONTHS.map((m, i) => (
-              <option key={m} value={String(i + 1).padStart(2, "0")}>
-                {m}
-              </option>
-            ))}
-          </select>
-        </div>
+    <div className="space-y-6 rounded-2xl p-4 sm:p-6" style={{ background: C.cream }}>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <DashTitle name="Comercial" />
+        <div className="w-full max-w-xl">{ui}</div>
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <Kpi label="Total de O.S" value={brl.format(kpis.total.valor)} sub={`${kpis.total.qtd} O.S`} />
-        <Kpi
-          label="Contratado"
-          value={brl.format(kpis.aprovado.valor)}
-          sub={`${kpis.aprovado.qtd} O.S · ${pct(kpis.aprovado.qtd)}`}
-          tone="green"
-        />
-        <Kpi
-          label="Em orçamento"
-          value={brl.format(kpis.orcamento.valor)}
-          sub={`${kpis.orcamento.qtd} O.S · ${pct(kpis.orcamento.qtd)}`}
-        />
-        <Kpi
-          label="Não aprovado"
-          value={brl.format(kpis.naoAprovado.valor)}
-          sub={`${kpis.naoAprovado.qtd} O.S · ${pct(kpis.naoAprovado.qtd)}`}
-          tone="red"
-        />
-        <Kpi label="Ticket médio" value={brl.format(kpis.ticket)} sub={`${kpis.clientes} clientes`} />
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard label="Orçado" value={brl.format(kpis.orcado.valor)}>
+          <div className="font-semibold text-neutral-800">{kpis.orcado.qtd} O.S</div>
+          <div className="mt-0.5">
+            <span className="font-semibold text-neutral-800">Não aprovado </span>
+            <span style={{ color: C.red }}>
+              {kpis.naoAprovado.qtd} · {brl.format(kpis.naoAprovado.valor)}
+            </span>
+          </div>
+        </StatCard>
+        <StatCard label="Aprovado" value={brl.format(kpis.aprovado.valor)}>
+          <div className="flex items-center justify-between">
+            <span className="font-semibold text-neutral-800">{kpis.aprovado.qtd} O.S</span>
+            <span style={{ color: C.green }}>{pct(kpis.aprovado.qtd)}</span>
+          </div>
+        </StatCard>
+        <StatCard label="Em Aprovação" value={brl.format(kpis.emAprovacao.valor)}>
+          <div className="flex items-center justify-between">
+            <span className="font-semibold text-neutral-800">{kpis.emAprovacao.qtd} O.S</span>
+            <span style={{ color: C.green }}>{pct(kpis.emAprovacao.qtd)}</span>
+          </div>
+        </StatCard>
+        <StatCard label="Ticket Médio" value={brl.format(kpis.ticket)}>
+          <div className="flex items-center justify-between">
+            <span className="font-semibold text-neutral-800">Qtd Clientes</span>
+            <span style={{ color: C.green }}>{kpis.clientes}</span>
+          </div>
+        </StatCard>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="Situação das O.S (valor)">
-          <BarList data={bySituacao} />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Panel title="Situação O.S">
+          <ValueQtyChart data={bySituacao} />
         </Panel>
-        <Panel title="Serviços por valor (top 10)">
-          <BarList data={byServico} />
-        </Panel>
-      </div>
-      <div className="mt-4">
-        <Panel title="O.S por cliente (top 15 por valor)">
-          <BarList data={byCliente} />
+        <Panel title="Tipo de O.S">
+          <ValueQtyChart data={byServico} showQty={false} />
         </Panel>
       </div>
+      <Panel title="O.S por Cliente">
+        <ValueQtyChart data={byCliente} height={360} />
+      </Panel>
     </div>
   );
 }
 
-function Kpi({
-  label,
-  value,
-  sub,
-  tone,
+function ValueQtyChart({
+  data,
+  showQty = true,
+  height = 320,
 }: {
-  label: string;
-  value: string;
-  sub: string;
-  tone?: "green" | "red";
+  data: Bucket[];
+  showQty?: boolean;
+  height?: number;
 }) {
+  if (data.length === 0) return <Empty />;
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white px-4 py-3">
-      <div className="text-xs font-medium uppercase tracking-wide text-neutral-500">{label}</div>
-      <div
-        className={
-          "mt-1 text-xl font-semibold " +
-          (tone === "green" ? "text-green-700" : tone === "red" ? "text-red-600" : "text-neutral-900")
-        }
-      >
-        {value}
-      </div>
-      <div className="text-xs text-neutral-500">{sub}</div>
-    </div>
-  );
-}
-
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-4">
-      <h3 className="mb-3 text-sm font-semibold text-neutral-700">{title}</h3>
-      {children}
-    </div>
-  );
-}
-
-function BarList({ data }: { data: { nome: string; valor: number; qtd: number }[] }) {
-  if (data.length === 0) return <p className="py-8 text-center text-sm text-neutral-400">Sem dados no período.</p>;
-  return (
-    <div style={{ height: Math.max(220, data.length * 30) }}>
+    <div style={{ height }}>
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} layout="vertical" margin={{ left: 8, right: 24 }}>
-          <CartesianGrid horizontal={false} stroke="#eee" />
-          <XAxis type="number" tickFormatter={(v) => brl.format(Number(v))} fontSize={11} />
-          <YAxis type="category" dataKey="nome" width={190} fontSize={11} interval={0} />
+        <ComposedChart data={data} margin={{ top: 24, right: 12, left: 40, bottom: 0 }}>
+          <CartesianGrid vertical={false} stroke="#ece7da" />
+          <XAxis dataKey="label" interval={0} angle={-30} textAnchor="end" height={84} fontSize={9} tickLine={false} />
+          <YAxis yAxisId="valor" hide />
+          <YAxis yAxisId="qtd" hide orientation="right" />
           <Tooltip
-            formatter={(value) => brl.format(Number(value))}
-            labelFormatter={(label) => {
-              const row = data.find((d) => d.nome === label);
-              return row ? `${label} (${row.qtd} O.S)` : String(label);
-            }}
+            formatter={(v, name) => (name === "Qtd O.S" ? String(v) : brl2.format(Number(v)))}
+            labelFormatter={(_, payload) => String(payload?.[0]?.payload?.name ?? "")}
           />
-          <Bar dataKey="valor" fill="#404040" radius={[0, 4, 4, 0]} />
-        </BarChart>
+          <Legend verticalAlign="top" align="right" iconType="square" wrapperStyle={{ fontSize: 11 }} />
+          <Bar yAxisId="valor" dataKey="valor" name="R$" fill={C.brown} radius={[3, 3, 0, 0]}>
+            <LabelList dataKey="valor" position="top" formatter={label} fontSize={9} />
+          </Bar>
+          {showQty && (
+            <Line yAxisId="qtd" dataKey="qtd" name="Qtd O.S" stroke={C.gold} strokeWidth={2} dot={{ r: 3, fill: C.gold }}>
+              <LabelList dataKey="qtd" position="top" fontSize={9} fill={C.gold} />
+            </Line>
+          )}
+        </ComposedChart>
       </ResponsiveContainer>
     </div>
   );
