@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import type { Shop9Lookup, Shop9Os, Shop9OsItem } from "@/lib/supabase/types";
 import { useDateFilters } from "@/components/dashboards/DateFilters";
 import { ComboChart } from "@/components/dashboards/ComboChart";
-import { brl, C, DashHeader, Panel, StatCard } from "@/components/dashboards/theme";
+import { brl, C, DashHeader, Delta, Panel, StatCard } from "@/components/dashboards/theme";
 
 // Nomes dos tipos de O.S no Shop9 (Configuracoes_Ordem_Servico_Tipos).
 const TIPO_ORCAMENTO = "Orçamento";
@@ -38,28 +38,36 @@ export function ComercialDashboard({
       Array.from(new Set(os.map((o) => o.data_gravacao?.slice(0, 4)).filter((y): y is string => !!y))).sort(),
     [os]
   );
-  const { matches, ui } = useDateFilters(years, years.at(-1));
+  const { matches, ui, previous } = useDateFilters(years, years.at(-1));
 
   const filtered = useMemo(() => os.filter((o) => matches(o.data_gravacao)), [os, matches]);
   const tipoNome = useMemo(() => new Map(tipos.map((t) => [t.ordem, t.nome])), [tipos]);
   const situacaoNome = useMemo(() => new Map(situacoes.map((s) => [s.ordem, s.nome])), [situacoes]);
 
-  const kpis = useMemo(() => {
-    const by = (nome: string) => {
-      const list = filtered.filter((o) => tipoNome.get(o.tipo_ordem ?? -1) === nome);
-      return { qtd: list.length, valor: list.reduce((s, o) => s + o.valor_total, 0) };
-    };
-    const orcado = { qtd: filtered.length, valor: filtered.reduce((s, o) => s + o.valor_total, 0) };
-    const clientes = new Set(filtered.map((o) => o.cliente).filter(Boolean)).size;
-    return {
-      orcado,
-      aprovado: by(TIPO_APROVADO),
-      emAprovacao: by(TIPO_ORCAMENTO),
-      naoAprovado: by(TIPO_NAO_APROVADO),
-      clientes,
-      ticket: clientes > 0 ? orcado.valor / clientes : 0,
-    };
-  }, [filtered, tipoNome]);
+  const kpisOf = useMemo(
+    () => (list: Shop9Os[]) => {
+      const by = (nome: string) => {
+        const sub = list.filter((o) => tipoNome.get(o.tipo_ordem ?? -1) === nome);
+        return { qtd: sub.length, valor: sub.reduce((s, o) => s + o.valor_total, 0) };
+      };
+      const orcado = { qtd: list.length, valor: list.reduce((s, o) => s + o.valor_total, 0) };
+      const clientes = new Set(list.map((o) => o.cliente).filter(Boolean)).size;
+      return {
+        orcado,
+        aprovado: by(TIPO_APROVADO),
+        emAprovacao: by(TIPO_ORCAMENTO),
+        naoAprovado: by(TIPO_NAO_APROVADO),
+        clientes,
+        ticket: clientes > 0 ? orcado.valor / clientes : 0,
+      };
+    },
+    [tipoNome]
+  );
+  const kpis = useMemo(() => kpisOf(filtered), [kpisOf, filtered]);
+  const prev = useMemo(
+    () => (previous ? kpisOf(os.filter((o) => previous.matches(o.data_gravacao))) : null),
+    [kpisOf, os, previous]
+  );
 
   const bySituacao = useMemo(() => {
     const map = new Map<string, { valor: number; qtd: number }>();
@@ -106,7 +114,15 @@ export function ComercialDashboard({
       <DashHeader name="Comercial">{ui}</DashHeader>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Orçado" value={brl.format(kpis.orcado.valor)}>
+        <StatCard
+          label="Orçado"
+          value={brl.format(kpis.orcado.valor)}
+          delta={
+            prev && previous && (
+              <Delta current={kpis.orcado.valor} previous={prev.orcado.valor} label={previous.label} format={brl.format} />
+            )
+          }
+        >
           <div className="font-semibold text-neutral-800">{kpis.orcado.qtd} O.S</div>
           <div className="mt-0.5">
             <span className="font-semibold text-neutral-800">Não aprovado </span>
@@ -115,19 +131,49 @@ export function ComercialDashboard({
             </span>
           </div>
         </StatCard>
-        <StatCard label="Aprovado" value={brl.format(kpis.aprovado.valor)}>
+        <StatCard
+          label="Aprovado"
+          value={brl.format(kpis.aprovado.valor)}
+          delta={
+            prev && previous && (
+              <Delta current={kpis.aprovado.valor} previous={prev.aprovado.valor} label={previous.label} format={brl.format} />
+            )
+          }
+        >
           <div className="flex items-center justify-between">
             <span className="font-semibold text-neutral-800">{kpis.aprovado.qtd} O.S</span>
             <span style={{ color: C.green }}>{pct(kpis.aprovado.qtd)}</span>
           </div>
         </StatCard>
-        <StatCard label="Em Aprovação" value={brl.format(kpis.emAprovacao.valor)}>
+        <StatCard
+          label="Em Aprovação"
+          value={brl.format(kpis.emAprovacao.valor)}
+          delta={
+            prev && previous && (
+              <Delta
+                current={kpis.emAprovacao.valor}
+                previous={prev.emAprovacao.valor}
+                label={previous.label}
+                format={brl.format}
+                neutral
+              />
+            )
+          }
+        >
           <div className="flex items-center justify-between">
             <span className="font-semibold text-neutral-800">{kpis.emAprovacao.qtd} O.S</span>
             <span style={{ color: C.green }}>{pct(kpis.emAprovacao.qtd)}</span>
           </div>
         </StatCard>
-        <StatCard label="Ticket Médio" value={brl.format(kpis.ticket)}>
+        <StatCard
+          label="Ticket Médio"
+          value={brl.format(kpis.ticket)}
+          delta={
+            prev && previous && (
+              <Delta current={kpis.ticket} previous={prev.ticket} label={previous.label} format={brl.format} />
+            )
+          }
+        >
           <div className="flex items-center justify-between">
             <span className="font-semibold text-neutral-800">Qtd Clientes</span>
             <span style={{ color: C.green }}>{kpis.clientes}</span>

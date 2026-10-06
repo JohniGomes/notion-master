@@ -25,6 +25,24 @@ export function useDateFilters(years: string[], defaultYear?: string) {
     [days, months, selectedYears]
   );
 
+  // Periodo anterior: so existe com exatamente 1 mes e 1 ano marcados (janeiro compara com dezembro).
+  const previous = useMemo(() => {
+    if (months.size !== 1 || selectedYears.size !== 1) return null;
+    const month = Number(Array.from(months)[0]);
+    const year = Number(Array.from(selectedYears)[0]);
+    const prevMonth = month === 1 ? 12 : month - 1;
+    const prevYear = month === 1 ? year - 1 : year;
+    const prevMonthStr = String(prevMonth).padStart(2, "0");
+    return {
+      label: `${MONTHS[prevMonth - 1]}/${String(prevYear).slice(2)}`,
+      matches: (iso: string | null | undefined) => {
+        if (!iso) return false;
+        if (iso.slice(0, 4) !== String(prevYear) || iso.slice(5, 7) !== prevMonthStr) return false;
+        return days.size === 0 || days.has(String(Number(iso.slice(8, 10))));
+      },
+    };
+  }, [days, months, selectedYears]);
+
   const ui = useMemo(
     () => (
       <>
@@ -57,5 +75,5 @@ export function useDateFilters(years: string[], defaultYear?: string) {
     [days, months, selectedYears, years]
   );
 
-  return { matches, ui, selectedYears };
+  return { matches, ui, selectedYears, previous };
 }

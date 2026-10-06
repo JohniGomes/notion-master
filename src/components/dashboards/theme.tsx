@@ -37,11 +37,13 @@ export function StatCard({
   label,
   value,
   valueColor = C.gold,
+  delta,
   children,
 }: {
   label: string;
   value: string;
   valueColor?: string;
+  delta?: ReactNode;
   children?: ReactNode;
 }) {
   return (
@@ -56,6 +58,65 @@ export function StatCard({
         {value}
       </div>
       {children && <div className="mt-1 text-xs">{children}</div>}
+      {delta && (
+        <div className="mt-2 border-t pt-2" style={{ borderColor: "#eee8d8" }}>
+          {delta}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const pctFmt = (v: number) => `${(Math.abs(v) * 100).toFixed(1).replace(".", ",")}%`;
+
+/**
+ * Comparacao com o periodo anterior. mode "pct" = variacao percentual; "pp" = diferenca em
+ * pontos percentuais (para valores que ja sao %); "abs" = diferenca no proprio valor (para
+ * valores que podem ser negativos ou perto de zero). `inverse`: subir e ruim (ex.: despesa).
+ * `neutral`: sem juizo de bom/ruim.
+ */
+export function Delta({
+  current,
+  previous,
+  label,
+  format,
+  mode = "pct",
+  inverse = false,
+  neutral = false,
+}: {
+  current: number;
+  previous: number;
+  label: string;
+  format: (v: number) => string;
+  mode?: "pct" | "pp" | "abs";
+  inverse?: boolean;
+  neutral?: boolean;
+}) {
+  const diff = current - previous;
+  const flat = Math.abs(diff) < 1e-9;
+  const up = diff > 0;
+  const good = inverse ? !up : up;
+  const color = neutral || flat ? C.gray : good ? C.green : C.red;
+
+  let text: string;
+  if (flat) text = "0%";
+  else if (mode === "pp") text = `${Math.abs(diff).toFixed(1).replace(".", ",")} p.p.`;
+  else if (mode === "abs") text = format(Math.abs(diff));
+  else if (previous === 0) text = "novo";
+  else if (Math.abs(diff / previous) > 10) text = ">999%";
+  else text = pctFmt(diff / Math.abs(previous));
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]">
+      <span
+        className="rounded-full px-2 py-0.5 font-semibold"
+        style={{ background: `${color}1F`, color }}
+      >
+        {flat ? "=" : up ? "▲" : "▼"} {text}
+      </span>
+      <span className="text-neutral-500">
+        vs {label} · {format(previous)}
+      </span>
     </div>
   );
 }

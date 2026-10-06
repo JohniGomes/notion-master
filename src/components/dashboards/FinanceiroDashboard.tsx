@@ -5,7 +5,7 @@ import { Bar, BarChart, CartesianGrid, LabelList, ResponsiveContainer, Tooltip, 
 import type { Shop9Conta } from "@/lib/supabase/types";
 import { useDateFilters } from "@/components/dashboards/DateFilters";
 import { ComboChart } from "@/components/dashboards/ComboChart";
-import { brl, brl2, C, DashHeader, MONTHS, Panel, StatCard } from "@/components/dashboards/theme";
+import { brl, brl2, C, DashHeader, Delta, MONTHS, Panel, StatCard } from "@/components/dashboards/theme";
 
 const label = (v: unknown) => (Number(v) > 0 ? brl.format(Number(v)) : "");
 const tooltipMoney = (v: unknown) => brl2.format(Number(v));
@@ -34,6 +34,20 @@ function rankBy(
     .slice(0, 10);
 }
 
+// Totais dos cartoes para um periodo qualquer (usado na comparacao com o mes anterior).
+function totalsFor(contas: Shop9Conta[], inPeriod: (iso: string | null) => boolean) {
+  let despPaga = 0;
+  let recebido = 0;
+  for (const c of contas) {
+    if (c.valor_quitado > 0 && inPeriod(c.data_quitacao)) {
+      if (c.pagar_receber === "P") despPaga += c.valor_quitado;
+      else recebido += c.valor_quitado;
+    }
+  }
+  const margem = recebido - despPaga;
+  return { despPaga, recebido, margem, margemPct: despPaga > 0 ? (margem / despPaga) * 100 : 0 };
+}
+
 export function FinanceiroDashboard({ contas }: { contas: Shop9Conta[] }) {
   const years = useMemo(() => {
     const set = new Set<string>();
@@ -49,7 +63,7 @@ export function FinanceiroDashboard({ contas }: { contas: Shop9Conta[] }) {
     return paidYears.length ? paidYears.sort().at(-1) : undefined;
   }, [contas]);
 
-  const { matches, ui } = useDateFilters(years, defaultYear);
+  const { matches, ui, previous } = useDateFilters(years, defaultYear);
 
   const data = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
@@ -112,6 +126,8 @@ export function FinanceiroDashboard({ contas }: { contas: Shop9Conta[] }) {
     };
   }, [contas, matches]);
 
+  const prev = useMemo(() => (previous ? totalsFor(contas, previous.matches) : null), [contas, previous]);
+
   const pct = (v: number) => `${v.toFixed(2).replace(".", ",")}%`;
   const sign = (v: number) => (v >= 0 ? C.green : C.red);
 
@@ -120,13 +136,29 @@ export function FinanceiroDashboard({ contas }: { contas: Shop9Conta[] }) {
       <DashHeader name="Financeiro">{ui}</DashHeader>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Despesa Paga" value={brl2.format(data.totalDespPaga)}>
+        <StatCard
+          label="Despesa Paga"
+          value={brl2.format(data.totalDespPaga)}
+          delta={
+            prev && previous && (
+              <Delta current={data.totalDespPaga} previous={prev.despPaga} label={previous.label} format={brl2.format} inverse />
+            )
+          }
+        >
           <div className="flex justify-end gap-2">
             <span className="font-semibold text-neutral-800">A Pagar</span>
             <span style={{ color: C.red }}>{brl2.format(data.totalDespPagar)}</span>
           </div>
         </StatCard>
-        <StatCard label="Recebido" value={brl2.format(data.totalRecebido)}>
+        <StatCard
+          label="Recebido"
+          value={brl2.format(data.totalRecebido)}
+          delta={
+            prev && previous && (
+              <Delta current={data.totalRecebido} previous={prev.recebido} label={previous.label} format={brl2.format} />
+            )
+          }
+        >
           <div className="flex justify-between gap-2">
             <span>
               <span className="font-semibold text-neutral-800">Atraso </span>
@@ -138,13 +170,31 @@ export function FinanceiroDashboard({ contas }: { contas: Shop9Conta[] }) {
             </span>
           </div>
         </StatCard>
-        <StatCard label="Margem de Lucro" value={brl2.format(data.margem)} valueColor={sign(data.margem)}>
+        <StatCard
+          label="Margem de Lucro"
+          value={brl2.format(data.margem)}
+          valueColor={sign(data.margem)}
+          delta={
+            prev && previous && (
+              <Delta current={data.margem} previous={prev.margem} label={previous.label} format={brl2.format} mode="abs" />
+            )
+          }
+        >
           <div className="flex justify-end gap-2">
             <span className="font-semibold text-neutral-800">Provisão</span>
             <span style={{ color: sign(data.provisao) }}>{brl2.format(data.provisao)}</span>
           </div>
         </StatCard>
-        <StatCard label="Margem %" value={pct(data.margemPct)} valueColor={sign(data.margem)}>
+        <StatCard
+          label="Margem %"
+          value={pct(data.margemPct)}
+          valueColor={sign(data.margem)}
+          delta={
+            prev && previous && (
+              <Delta current={data.margemPct} previous={prev.margemPct} label={previous.label} format={pct} mode="pp" />
+            )
+          }
+        >
           <div className="flex justify-end gap-2">
             <span className="font-semibold text-neutral-800">Provisão</span>
             <span style={{ color: sign(data.provisao) }}>{pct(data.provisaoPct)}</span>
