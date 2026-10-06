@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Bar, BarChart, CartesianGrid, LabelList, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { PeopleTask } from "@/lib/data/shop9";
-import { C, ChipGroup, DashTitle, Empty, Panel, StatCard, toggleIn } from "@/components/dashboards/theme";
+import { C, DashHeader, Empty, FilterDropdown, Panel, StatCard, toggleIn } from "@/components/dashboards/theme";
 
 type Status = PeopleTask["status"];
 const STATUS_LABEL: Record<Status, string> = {
@@ -63,61 +63,64 @@ export function PessoasDashboard({ tasks }: { tasks: PeopleTask[] }) {
   }, [filtered, search]);
 
   return (
-    <div className="space-y-6 rounded-2xl p-4 sm:p-6" style={{ background: C.cream }}>
-      <DashTitle name="People" />
+    <div className="space-y-5 rounded-2xl p-4 sm:p-5" style={{ background: C.cream }}>
+      <DashHeader name="People">
+        <FilterDropdown
+          title="Status"
+          cols={1}
+          options={(Object.keys(STATUS_LABEL) as Status[]).map((s) => ({ value: s, label: STATUS_LABEL[s] }))}
+          selected={statuses}
+          onToggle={(v) => setStatuses((s) => toggleIn(s, v))}
+          onClear={() => setStatuses(new Set())}
+        />
+        <FilterDropdown
+          title="Responsável"
+          cols={2}
+          options={allPeople.map((p) => ({ value: p, label: p }))}
+          selected={people}
+          onToggle={(v) => setPeople((s) => toggleIn(s, v))}
+          onClear={() => setPeople(new Set())}
+        />
+      </DashHeader>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_1.4fr]">
-        <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-3">
-            <Big label="Concluídas" value={count("done")} />
-            <Big label="Em Andamento" value={count("in_progress")} />
-            <Big label="Pendente" value={count("not_started")} />
-          </div>
-          <ChipGroup
-            title="Status"
-            cols={3}
-            options={(Object.keys(STATUS_LABEL) as Status[]).map((s) => ({ value: s, label: STATUS_LABEL[s] }))}
-            selected={statuses}
-            onToggle={(v) => setStatuses((s) => toggleIn(s, v))}
-            onClear={() => setStatuses(new Set())}
-          />
-          <ChipGroup
-            title="Responsável"
-            cols={2}
-            options={allPeople.map((p) => ({ value: p, label: p }))}
-            selected={people}
-            onToggle={(v) => setPeople((s) => toggleIn(s, v))}
-            onClear={() => setPeople(new Set())}
-          />
-        </div>
-
-        <Panel title="Status por colaborador">
-          {byPerson.length === 0 ? (
-            <Empty />
-          ) : (
-            <div style={{ height: Math.max(260, byPerson.length * 44) }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={byPerson} layout="vertical" margin={{ left: 8, right: 16, top: 8 }}>
-                  <CartesianGrid horizontal={false} stroke="#ece7da" />
-                  <XAxis type="number" hide />
-                  <YAxis type="category" dataKey="name" width={150} fontSize={11} tickLine={false} interval={0} />
-                  <Tooltip />
-                  <Legend verticalAlign="top" align="right" iconType="square" wrapperStyle={{ fontSize: 11 }} />
-                  <Bar dataKey="done" name="Concluídos" stackId="s" fill={STATUS_COLOR.done}>
-                    <LabelList dataKey="done" position="center" fill="#fff" fontSize={10} formatter={(v: unknown) => (Number(v) > 0 ? String(v) : "")} />
-                  </Bar>
-                  <Bar dataKey="in_progress" name="Em andamento" stackId="s" fill={STATUS_COLOR.in_progress}>
-                    <LabelList dataKey="in_progress" position="center" fill="#fff" fontSize={10} formatter={(v: unknown) => (Number(v) > 0 ? String(v) : "")} />
-                  </Bar>
-                  <Bar dataKey="not_started" name="Pendentes" stackId="s" fill={STATUS_COLOR.not_started}>
-                    <LabelList dataKey="not_started" position="center" fill="#fff" fontSize={10} formatter={(v: unknown) => (Number(v) > 0 ? String(v) : "")} />
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </Panel>
+      <div className="grid grid-cols-3 gap-4">
+        <Big label="Concluídas" value={count("done")} />
+        <Big label="Em Andamento" value={count("in_progress")} />
+        <Big label="Pendente" value={count("not_started")} />
       </div>
+
+      <Panel
+        title="Status por colaborador"
+        legend={[
+          { color: STATUS_COLOR.done, label: "Concluídos" },
+          { color: STATUS_COLOR.in_progress, label: "Em andamento" },
+          { color: STATUS_COLOR.not_started, label: "Pendentes" },
+        ]}
+      >
+        {byPerson.length === 0 ? (
+          <Empty />
+        ) : (
+          <div style={{ height: Math.max(180, byPerson.length * 34) }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={byPerson} layout="vertical" margin={{ left: 8, right: 16, top: 4 }}>
+                <CartesianGrid horizontal={false} stroke="#ece7da" />
+                <XAxis type="number" hide />
+                <YAxis type="category" dataKey="name" width={150} fontSize={11} tickLine={false} interval={0} />
+                <Tooltip />
+                <Bar dataKey="done" name="Concluídos" stackId="s" fill={STATUS_COLOR.done}>
+                  <LabelList dataKey="done" position="center" fill="#fff" fontSize={10} formatter={(v: unknown) => (Number(v) > 0 ? String(v) : "")} />
+                </Bar>
+                <Bar dataKey="in_progress" name="Em andamento" stackId="s" fill={STATUS_COLOR.in_progress}>
+                  <LabelList dataKey="in_progress" position="center" fill="#fff" fontSize={10} formatter={(v: unknown) => (Number(v) > 0 ? String(v) : "")} />
+                </Bar>
+                <Bar dataKey="not_started" name="Pendentes" stackId="s" fill={STATUS_COLOR.not_started}>
+                  <LabelList dataKey="not_started" position="center" fill="#fff" fontSize={10} formatter={(v: unknown) => (Number(v) > 0 ? String(v) : "")} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </Panel>
 
       <Panel title="Etapas">
         <input

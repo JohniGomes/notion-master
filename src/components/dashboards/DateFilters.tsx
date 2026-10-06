@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { ChipGroup, MONTHS, toggleIn } from "@/components/dashboards/theme";
+import { FilterDropdown, MONTHS, toggleIn } from "@/components/dashboards/theme";
 
 // Filtros de Dia / Mes / Ano em varios-ao-mesmo-tempo (vazio = sem filtro).
 export function useDateFilters(years: string[], defaultYear?: string) {
@@ -27,16 +27,16 @@ export function useDateFilters(years: string[], defaultYear?: string) {
 
   const ui = useMemo(
     () => (
-      <div className="grid gap-3 sm:grid-cols-[1.4fr_1.2fr_0.6fr]">
-        <ChipGroup
+      <>
+        <FilterDropdown
           title="Dia"
-          cols={8}
+          cols={7}
           options={Array.from({ length: 31 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }))}
           selected={days}
           onToggle={(v) => setDays((s) => toggleIn(s, v))}
           onClear={() => setDays(new Set())}
         />
-        <ChipGroup
+        <FilterDropdown
           title="Mês"
           cols={4}
           options={MONTHS.map((m, i) => ({ value: String(i + 1).padStart(2, "0"), label: m }))}
@@ -44,7 +44,7 @@ export function useDateFilters(years: string[], defaultYear?: string) {
           onToggle={(v) => setMonths((s) => toggleIn(s, v))}
           onClear={() => setMonths(new Set())}
         />
-        <ChipGroup
+        <FilterDropdown
           title="Ano"
           cols={1}
           options={years.map((y) => ({ value: y, label: y }))}
@@ -52,7 +52,7 @@ export function useDateFilters(years: string[], defaultYear?: string) {
           onToggle={(v) => setSelectedYears((s) => toggleIn(s, v))}
           onClear={() => setSelectedYears(new Set())}
         />
-      </div>
+      </>
     ),
     [days, months, selectedYears, years]
   );

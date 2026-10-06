@@ -1,26 +1,15 @@
 "use client";
 
 import { useMemo } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ComposedChart,
-  LabelList,
-  Legend,
-  Line,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Bar, BarChart, CartesianGrid, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { Shop9Conta } from "@/lib/supabase/types";
 import { useDateFilters } from "@/components/dashboards/DateFilters";
-import { brl, brl2, C, DashTitle, Empty, MONTHS, Panel, StatCard } from "@/components/dashboards/theme";
+import { ComboChart } from "@/components/dashboards/ComboChart";
+import { brl, brl2, C, DashHeader, MONTHS, Panel, StatCard } from "@/components/dashboards/theme";
 
 const label = (v: unknown) => (Number(v) > 0 ? brl.format(Number(v)) : "");
 const tooltipMoney = (v: unknown) => brl2.format(Number(v));
-const trunc = (s: string, n = 26) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
+const trunc = (s: string, n = 20) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
 
 type Rank = { name: string; label: string; valor: number; pct: number };
 
@@ -127,11 +116,8 @@ export function FinanceiroDashboard({ contas }: { contas: Shop9Conta[] }) {
   const sign = (v: number) => (v >= 0 ? C.green : C.red);
 
   return (
-    <div className="space-y-6 rounded-2xl p-4 sm:p-6" style={{ background: C.cream }}>
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <DashTitle name="Financeiro" />
-        <div className="w-full max-w-xl">{ui}</div>
-      </div>
+    <div className="space-y-5 rounded-2xl p-4 sm:p-5" style={{ background: C.cream }}>
+      <DashHeader name="Financeiro">{ui}</DashHeader>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Despesa Paga" value={brl2.format(data.totalDespPaga)}>
@@ -166,20 +152,44 @@ export function FinanceiroDashboard({ contas }: { contas: Shop9Conta[] }) {
         </StatCard>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Panel title="Despesas">
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Panel
+          title="Despesas"
+          legend={[
+            { color: C.beige, label: "A Pagar" },
+            { color: C.brown, label: "Pagas" },
+          ]}
+        >
           <MonthBars data={data.monthly} a="pagas" aName="Pagas" b="aPagar" bName="A Pagar" />
         </Panel>
-        <Panel title="Receitas">
+        <Panel
+          title="Receitas"
+          legend={[
+            { color: C.beige, label: "A Receber" },
+            { color: C.brown, label: "Recebido" },
+          ]}
+        >
           <MonthBars data={data.monthly} a="recebido" aName="Recebido" b="aReceber" bName="A Receber" />
         </Panel>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Panel title="Ranking Despesas">
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Panel
+          title="Ranking Despesas"
+          legend={[
+            { color: C.brown, label: "Valor" },
+            { color: C.gold, label: "%" },
+          ]}
+        >
           <RankChart data={data.rankDesp} />
         </Panel>
-        <Panel title="Ranking Receitas">
+        <Panel
+          title="Ranking Receitas"
+          legend={[
+            { color: C.brown, label: "Valor" },
+            { color: C.gold, label: "%" },
+          ]}
+        >
           <RankChart data={data.rankRec} />
         </Panel>
       </div>
@@ -203,12 +213,11 @@ function MonthBars({
   return (
     <div style={{ height: 300 }}>
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 20, right: 8, left: 8, bottom: 0 }}>
+        <BarChart data={data} margin={{ top: 14, right: 8, left: 8, bottom: 0 }}>
           <CartesianGrid vertical={false} stroke="#ece7da" />
           <XAxis dataKey="mes" fontSize={11} tickLine={false} />
           <YAxis hide />
           <Tooltip formatter={tooltipMoney} />
-          <Legend verticalAlign="top" align="right" iconType="square" wrapperStyle={{ fontSize: 11 }} />
           <Bar dataKey={b} name={bName} fill={C.beige} radius={[3, 3, 0, 0]}>
             <LabelList dataKey={b} position="top" formatter={label} fontSize={8} />
           </Bar>
@@ -221,28 +230,16 @@ function MonthBars({
   );
 }
 
+const pctText = (v: unknown) => `${String(v).replace(".", ",")}%`;
+
 function RankChart({ data }: { data: Rank[] }) {
-  if (data.length === 0) return <Empty />;
   return (
-    <div style={{ height: 340 }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={data} margin={{ top: 24, right: 12, left: 40, bottom: 0 }}>
-          <XAxis dataKey="label" interval={0} angle={-30} textAnchor="end" height={78} fontSize={9} tickLine={false} />
-          <YAxis yAxisId="valor" hide />
-          <YAxis yAxisId="pct" hide orientation="right" />
-          <Tooltip
-            formatter={(v, name) => (name === "%" ? `${v}%` : tooltipMoney(v))}
-            labelFormatter={(_, payload) => String(payload?.[0]?.payload?.name ?? "")}
-          />
-          <Legend verticalAlign="top" align="right" iconType="square" wrapperStyle={{ fontSize: 11 }} />
-          <Bar yAxisId="valor" dataKey="valor" name="Valor" fill={C.brown} radius={[3, 3, 0, 0]}>
-            <LabelList dataKey="valor" position="top" formatter={label} fontSize={9} />
-          </Bar>
-          <Line yAxisId="pct" dataKey="pct" name="%" stroke={C.gold} strokeWidth={2} dot={{ r: 3, fill: C.gold }}>
-            <LabelList dataKey="pct" position="top" formatter={(v: unknown) => `${String(v).replace(".", ",")}%`} fontSize={9} fill={C.gold} />
-          </Line>
-        </ComposedChart>
-      </ResponsiveContainer>
-    </div>
+    <ComboChart
+      data={data.map((r) => ({ name: r.name, label: r.label, valor: r.valor, linha: r.pct }))}
+      barName="Valor"
+      lineName="%"
+      lineFormat={pctText}
+      height={320}
+    />
   );
 }

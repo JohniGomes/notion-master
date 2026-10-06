@@ -1,29 +1,17 @@
 "use client";
 
 import { useMemo } from "react";
-import {
-  Bar,
-  CartesianGrid,
-  ComposedChart,
-  LabelList,
-  Legend,
-  Line,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import type { Shop9Lookup, Shop9Os, Shop9OsItem } from "@/lib/supabase/types";
 import { useDateFilters } from "@/components/dashboards/DateFilters";
-import { brl, brl2, C, DashTitle, Empty, Panel, StatCard } from "@/components/dashboards/theme";
+import { ComboChart } from "@/components/dashboards/ComboChart";
+import { brl, C, DashHeader, Panel, StatCard } from "@/components/dashboards/theme";
 
 // Nomes dos tipos de O.S no Shop9 (Configuracoes_Ordem_Servico_Tipos).
 const TIPO_ORCAMENTO = "Orçamento";
 const TIPO_APROVADO = "Contratado";
 const TIPO_NAO_APROVADO = "Não Aprovado";
 
-const label = (v: unknown) => (Number(v) > 0 ? brl.format(Number(v)) : "");
-const trunc = (s: string, n = 24) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
+const trunc = (s: string, n = 20) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
 
 type Bucket = { name: string; label: string; valor: number; qtd: number };
 
@@ -114,11 +102,8 @@ export function ComercialDashboard({
     kpis.orcado.qtd > 0 ? `${((part / kpis.orcado.qtd) * 100).toFixed(2).replace(".", ",")}%` : "—";
 
   return (
-    <div className="space-y-6 rounded-2xl p-4 sm:p-6" style={{ background: C.cream }}>
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <DashTitle name="Comercial" />
-        <div className="w-full max-w-xl">{ui}</div>
-      </div>
+    <div className="space-y-5 rounded-2xl p-4 sm:p-5" style={{ background: C.cream }}>
+      <DashHeader name="Comercial">{ui}</DashHeader>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Orçado" value={brl.format(kpis.orcado.valor)}>
@@ -150,16 +135,28 @@ export function ComercialDashboard({
         </StatCard>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Panel title="Situação O.S">
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Panel
+          title="Situação O.S"
+          legend={[
+            { color: C.brown, label: "R$" },
+            { color: C.gold, label: "Qtd O.S" },
+          ]}
+        >
           <ValueQtyChart data={bySituacao} />
         </Panel>
-        <Panel title="Tipo de O.S">
+        <Panel title="Tipo de O.S" legend={[{ color: C.brown, label: "R$" }]}>
           <ValueQtyChart data={byServico} showQty={false} />
         </Panel>
       </div>
-      <Panel title="O.S por Cliente">
-        <ValueQtyChart data={byCliente} height={360} />
+      <Panel
+        title="O.S por Cliente"
+        legend={[
+          { color: C.brown, label: "Valor" },
+          { color: C.gold, label: "Qtd de O.S" },
+        ]}
+      >
+        <ValueQtyChart data={byCliente} height={340} />
       </Panel>
     </div>
   );
@@ -168,36 +165,19 @@ export function ComercialDashboard({
 function ValueQtyChart({
   data,
   showQty = true,
-  height = 320,
+  height = 300,
 }: {
   data: Bucket[];
   showQty?: boolean;
   height?: number;
 }) {
-  if (data.length === 0) return <Empty />;
   return (
-    <div style={{ height }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={data} margin={{ top: 24, right: 12, left: 40, bottom: 0 }}>
-          <CartesianGrid vertical={false} stroke="#ece7da" />
-          <XAxis dataKey="label" interval={0} angle={-30} textAnchor="end" height={84} fontSize={9} tickLine={false} />
-          <YAxis yAxisId="valor" hide />
-          <YAxis yAxisId="qtd" hide orientation="right" />
-          <Tooltip
-            formatter={(v, name) => (name === "Qtd O.S" ? String(v) : brl2.format(Number(v)))}
-            labelFormatter={(_, payload) => String(payload?.[0]?.payload?.name ?? "")}
-          />
-          <Legend verticalAlign="top" align="right" iconType="square" wrapperStyle={{ fontSize: 11 }} />
-          <Bar yAxisId="valor" dataKey="valor" name="R$" fill={C.brown} radius={[3, 3, 0, 0]}>
-            <LabelList dataKey="valor" position="top" formatter={label} fontSize={9} />
-          </Bar>
-          {showQty && (
-            <Line yAxisId="qtd" dataKey="qtd" name="Qtd O.S" stroke={C.gold} strokeWidth={2} dot={{ r: 3, fill: C.gold }}>
-              <LabelList dataKey="qtd" position="top" fontSize={9} fill={C.gold} />
-            </Line>
-          )}
-        </ComposedChart>
-      </ResponsiveContainer>
-    </div>
+    <ComboChart
+      data={data.map((d) => ({ name: d.name, label: d.label, valor: d.valor, linha: d.qtd }))}
+      barName="R$"
+      lineName={showQty ? "Qtd O.S" : undefined}
+      lineFormat={(v) => String(v)}
+      height={height}
+    />
   );
 }

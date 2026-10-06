@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 // Paleta extraida dos dashboards originais da Master.
 export const C = {
@@ -19,12 +19,16 @@ export const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency:
 export const brl2 = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2 });
 export const MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
-export function DashTitle({ name }: { name: string }) {
+// Cabecalho unico: titulo a esquerda, filtros a direita, numa linha so.
+export function DashHeader({ name, children }: { name: string; children?: ReactNode }) {
   return (
-    <h2 className="text-2xl font-light tracking-wide" style={{ color: C.ink }}>
-      DASHBOARD {name.toUpperCase()} <span className="mx-1 font-extralight">|</span>
-      <span className="font-normal">RESULTADOS</span>
-    </h2>
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <h2 className="text-2xl font-light tracking-wide" style={{ color: C.ink }}>
+        DASHBOARD {name.toUpperCase()} <span className="mx-1 font-extralight">|</span>
+        <span className="font-normal">RESULTADOS</span>
+      </h2>
+      <div className="flex flex-wrap items-center gap-2">{children}</div>
+    </div>
   );
 }
 
@@ -41,7 +45,7 @@ export function StatCard({
   children?: ReactNode;
 }) {
   return (
-    <div className="relative rounded-2xl bg-white px-4 pb-3 pt-6 shadow-md">
+    <div className="relative rounded-2xl bg-white px-4 pb-3 pt-5 shadow-md">
       <span
         className="absolute left-4 top-0 -translate-y-1/2 whitespace-nowrap rounded-md bg-white px-3 py-0.5 text-xs font-medium shadow-sm"
         style={{ color: C.ink }}
@@ -56,21 +60,43 @@ export function StatCard({
   );
 }
 
-export function Panel({ title, children }: { title: string; children: ReactNode }) {
+export type LegendItem = { color: string; label: string };
+
+// Painel com a legenda na mesma linha do titulo (o grafico comeca logo abaixo).
+export function Panel({
+  title,
+  legend,
+  children,
+}: {
+  title: string;
+  legend?: LegendItem[];
+  children: ReactNode;
+}) {
   return (
-    <div className="relative rounded-2xl bg-white px-4 pb-4 pt-7 shadow-md">
+    <div className="relative rounded-2xl bg-white px-4 pb-3 pt-6 shadow-md">
       <span
         className="absolute left-4 top-0 -translate-y-1/2 rounded-md bg-white px-4 py-1 text-xs font-medium uppercase shadow-sm"
         style={{ color: C.ink }}
       >
         {title}
       </span>
+      {legend && (
+        <div className="absolute right-4 top-0 flex -translate-y-1/2 items-center gap-3 rounded-md bg-white px-3 py-1 text-xs shadow-sm">
+          {legend.map((l) => (
+            <span key={l.label} className="flex items-center gap-1.5" style={{ color: C.ink }}>
+              <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: l.color }} />
+              {l.label}
+            </span>
+          ))}
+        </div>
+      )}
       {children}
     </div>
   );
 }
 
-export function ChipGroup({
+// Menu de filtro com varias opcoes marcaveis (vazio = sem filtro). Fecha ao clicar fora.
+export function FilterDropdown({
   title,
   options,
   selected,
@@ -85,36 +111,57 @@ export function ChipGroup({
   onClear: () => void;
   cols?: number;
 }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
+  const active = selected.size > 0;
   return (
-    <div>
-      <div className="mb-1 flex items-center justify-between border-b pb-0.5" style={{ borderColor: C.brown }}>
-        <span className="text-sm font-medium" style={{ color: C.ink }}>
-          {title}
-        </span>
-        {selected.size > 0 && (
-          <button onClick={onClear} className="text-xs underline" style={{ color: C.brown }}>
-            limpar
-          </button>
-        )}
-      </div>
-      <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
-        {options.map((o) => {
-          const active = selected.has(o.value);
-          return (
-            <button
-              key={o.value}
-              onClick={() => onToggle(o.value)}
-              className="rounded px-2 py-1 text-xs transition"
-              style={{
-                background: active ? C.brown : C.tan,
-                color: active ? "#fff" : C.ink,
-              }}
-            >
-              {o.label}
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition"
+        style={{ background: active ? C.brown : C.tan, color: active ? "#fff" : C.ink }}
+      >
+        {title}
+        {active && <span className="rounded-full bg-white/25 px-1.5 text-xs">{selected.size}</span>}
+        <span className="text-[10px]">▾</span>
+      </button>
+      {open && (
+        <div
+          className="absolute right-0 z-20 mt-1 w-max max-w-[92vw] rounded-xl bg-white p-3 shadow-lg"
+          style={{ border: `1px solid ${C.tan}` }}
+        >
+          <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${cols}, minmax(2.5rem, 1fr))` }}>
+            {options.map((o) => {
+              const on = selected.has(o.value);
+              return (
+                <button
+                  key={o.value}
+                  onClick={() => onToggle(o.value)}
+                  className="whitespace-nowrap rounded px-2 py-1 text-xs transition"
+                  style={{ background: on ? C.brown : C.tan, color: on ? "#fff" : C.ink }}
+                >
+                  {o.label}
+                </button>
+              );
+            })}
+          </div>
+          {active && (
+            <button onClick={onClear} className="mt-2 text-xs underline" style={{ color: C.brown }}>
+              limpar seleção
             </button>
-          );
-        })}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
