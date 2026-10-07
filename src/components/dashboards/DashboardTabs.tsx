@@ -7,11 +7,13 @@ import { C } from "@/components/dashboards/theme";
 import { FinanceiroDashboard } from "@/components/dashboards/FinanceiroDashboard";
 import { ComercialDashboard } from "@/components/dashboards/ComercialDashboard";
 import { PessoasDashboard } from "@/components/dashboards/PessoasDashboard";
+import { AssistenteChat } from "@/components/dashboards/AssistenteChat";
 
 const TABS = [
   { id: "financeiro", label: "Financeiro" },
   { id: "comercial", label: "Comercial" },
   { id: "pessoas", label: "Pessoas" },
+  { id: "assistente", label: "Assistente IA" },
 ] as const;
 
 export function DashboardTabs({
@@ -46,6 +48,7 @@ export function DashboardTabs({
       {tab === "financeiro" && <FinanceiroDashboard contas={contas} />}
       {tab === "comercial" && <ComercialDashboard {...commercial} />}
       {tab === "pessoas" && <PessoasDashboard tasks={tasks} />}
+      {tab === "assistente" && <AssistenteChat />}
     </div>
   );
 }
