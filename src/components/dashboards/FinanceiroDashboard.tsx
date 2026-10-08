@@ -428,7 +428,7 @@ function MonthBars({
             onClick={(_, i) => onPick(i)}
           >
             {cells(C.beige)}
-            <LabelList dataKey={keys.total} position="top" formatter={label} fontSize={8} />
+            <LabelList dataKey={keys.total} position="top" formatter={label} fontSize={9} fill={C.ink} />
           </Bar>
           <Bar
             dataKey={keys.paid}
@@ -439,7 +439,7 @@ function MonthBars({
             onClick={(_, i) => onPick(i)}
           >
             {cells(C.brown)}
-            <LabelList dataKey={keys.paid} position="top" formatter={label} fontSize={8} />
+            <LabelList dataKey={keys.paid} position="top" formatter={label} fontSize={9} fill={C.ink} />
           </Bar>
         </BarChart>
       </ResponsiveContainer>
