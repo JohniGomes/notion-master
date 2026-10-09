@@ -5,7 +5,6 @@ import { askAssistant, type ChatMessage } from "@/lib/ai/gemini";
 
 export const maxDuration = 60;
 
-const OWNER_EMAIL = (process.env.AI_OWNER_EMAIL || "jmichael@masterregularizacaoimobiliaria.com").toLowerCase();
 const MAX_MESSAGES = 12;
 const MAX_CHARS = 1500;
 
@@ -15,10 +14,6 @@ export async function POST(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
-  // Dados financeiros: so o dono (alem do RLS das tabelas shop9_*).
-  if (user.email?.toLowerCase() !== OWNER_EMAIL) {
-    return NextResponse.json({ error: "Acesso restrito." }, { status: 403 });
-  }
   if (!process.env.GEMINI_API_KEY) {
     return NextResponse.json({ error: "Chave do Gemini não configurada no servidor." }, { status: 503 });
   }
