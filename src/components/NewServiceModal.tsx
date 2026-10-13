@@ -8,6 +8,7 @@ import { addAttachment, createTask } from "@/lib/data/tasks";
 import type { Client, Profile, ServiceTemplate, Task, TaskStatus } from "@/lib/supabase/types";
 import { STATUS_LABEL, STATUS_ORDER } from "@/components/status";
 import { AssigneeInput } from "@/components/AssigneeInput";
+import { notifyTasksCreated } from "@/lib/notify";
 
 export function NewServiceModal({
   spaceId,
@@ -129,6 +130,8 @@ export function NewServiceModal({
           await addAttachment(supabase, firstTask.id, currentUserId, file.name, path);
         }
       }
+
+      notifyTasksCreated(createdTasks.map((t) => t.id));
 
       for (const task of createdTasks) {
         onCreated(task, client, isNewClient);

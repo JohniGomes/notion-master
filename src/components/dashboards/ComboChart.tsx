@@ -3,6 +3,7 @@
 import {
   Bar,
   CartesianGrid,
+  Cell,
   ComposedChart,
   LabelList,
   Line,
@@ -44,6 +45,43 @@ function LineTag({
   );
 }
 
+// Nome do eixo inclinado e clicavel (abre os detalhes da coluna).
+function PickTick({
+  x,
+  y,
+  payload,
+  names,
+  selected,
+  onPick,
+}: {
+  x?: number;
+  y?: number;
+  payload?: { value: string; index: number };
+  names: string[];
+  selected: string | null;
+  onPick: (name: string) => void;
+}) {
+  if (!payload) return null;
+  const name = names[payload.index];
+  const on = selected === name;
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text
+        dy={8}
+        textAnchor="end"
+        transform="rotate(-30)"
+        fontSize={9}
+        fontWeight={on ? 700 : 400}
+        fill={on ? C.brown : C.ink}
+        style={{ cursor: "pointer" }}
+        onClick={() => onPick(name)}
+      >
+        {payload.value}
+      </text>
+    </g>
+  );
+}
+
 /**
  * Colunas + linha sem sobreposicao: as colunas ocupam a metade de baixo do grafico e a
  * linha a metade de cima (cada serie com seu proprio eixo escondido), entao os numeros
@@ -56,6 +94,8 @@ export function ComboChart({
   lineFormat = (v) => String(v),
   tooltipLineFormat,
   height = 300,
+  onSelect,
+  selected = null,
 }: {
   data: ComboDatum[];
   barName?: string;
@@ -63,6 +103,9 @@ export function ComboChart({
   lineFormat?: (v: unknown) => string;
   tooltipLineFormat?: (v: unknown) => string;
   height?: number;
+  /** Quando informado, clicar numa coluna (ou no nome dela) chama onSelect com o nome completo. */
+  onSelect?: (name: string) => void;
+  selected?: string | null;
 }) {
   if (data.length === 0) return <Empty />;
 
@@ -75,7 +118,27 @@ export function ComboChart({
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={data} margin={{ top: 16, right: 12, left: 64, bottom: 0 }}>
           <CartesianGrid vertical={false} stroke="#ece7da" />
-          <XAxis dataKey="label" interval={0} angle={-30} textAnchor="end" height={72} fontSize={9} tickLine={false} />
+          <XAxis
+            dataKey="label"
+            interval={0}
+            angle={-30}
+            textAnchor="end"
+            height={72}
+            fontSize={9}
+            tickLine={false}
+            tick={
+              onSelect
+                ? (p) => (
+                    <PickTick
+                      {...(p as object)}
+                      names={data.map((d) => d.name)}
+                      selected={selected}
+                      onPick={onSelect}
+                    />
+                  )
+                : undefined
+            }
+          />
           <YAxis yAxisId="valor" hide domain={[0, showLine ? maxBar * 1.9 : maxBar * 1.15]} />
           <YAxis yAxisId="linha" hide orientation="right" domain={[-maxLine * 2, maxLine * 1.25]} />
           <Tooltip
@@ -84,7 +147,19 @@ export function ComboChart({
             }
             labelFormatter={(_, payload) => String(payload?.[0]?.payload?.name ?? "")}
           />
-          <Bar yAxisId="valor" dataKey="valor" name={barName} fill={C.brown} radius={[3, 3, 0, 0]}>
+          <Bar
+            yAxisId="valor"
+            dataKey="valor"
+            name={barName}
+            fill={C.brown}
+            radius={[3, 3, 0, 0]}
+            style={onSelect ? { cursor: "pointer" } : undefined}
+            onClick={onSelect ? (_, i) => onSelect(data[i].name) : undefined}
+          >
+            {onSelect &&
+              data.map((d) => (
+                <Cell key={d.name} fill={C.brown} fillOpacity={selected == null || selected === d.name ? 1 : 0.4} />
+              ))}
             <LabelList dataKey="valor" position="top" formatter={moneyLabel} fontSize={9} fill={C.ink} />
           </Bar>
           {showLine && (

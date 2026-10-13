@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { STATUS_LABEL } from "@/components/status";
 import { sendEmail } from "@/lib/email";
+import { escapeHtml } from "@/lib/emailTemplates";
 import type { TaskStatus } from "@/lib/supabase/types";
 
 export async function POST(request: NextRequest) {
@@ -39,8 +40,8 @@ export async function POST(request: NextRequest) {
       to: recipients,
       subject: `${client?.name ?? "Cliente"}${osLabel} — "${task.title}" agora está ${statusLabel}`,
       html: `
-        <p><strong>${client?.name ?? "Cliente"}${osLabel}</strong></p>
-        <p>A etapa <strong>${task.title}</strong>${task.service ? ` (${task.service})` : ""} mudou de status para <strong>${statusLabel}</strong>.</p>
+        <p><strong>${escapeHtml(client?.name ?? "Cliente")}${osLabel}</strong></p>
+        <p>A etapa <strong>${escapeHtml(task.title)}</strong>${task.service ? ` (${escapeHtml(task.service)})` : ""} mudou de status para <strong>${statusLabel}</strong>.</p>
       `,
     });
   } catch (err) {

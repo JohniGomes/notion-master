@@ -26,6 +26,7 @@ export interface Shop9Os {
   numero: number | null;
   ordem_movimento: number;
   cliente: string | null;
+  descricao: string | null;
   tipo_ordem: number | null;
   situacao_ordem: number | null;
   aprovado: boolean;

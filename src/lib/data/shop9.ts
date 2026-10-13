@@ -28,7 +28,7 @@ export async function loadCommercialData(supabase: SB) {
     fetchAll<Shop9Os>(
       supabase,
       "shop9_os",
-      "ordem, numero, ordem_movimento, cliente, tipo_ordem, situacao_ordem, aprovado, fechada, cancelada, valor_total, data_gravacao, prazo",
+      "ordem, numero, ordem_movimento, cliente, descricao, tipo_ordem, situacao_ordem, aprovado, fechada, cancelada, valor_total, data_gravacao, prazo",
       "ordem"
     ),
     fetchAll<Shop9OsItem>(

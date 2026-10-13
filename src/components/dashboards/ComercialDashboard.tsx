@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { Shop9Lookup, Shop9Os, Shop9OsItem } from "@/lib/supabase/types";
 import { useDateFilters } from "@/components/dashboards/DateFilters";
 import { ComboChart } from "@/components/dashboards/ComboChart";
-import { brl, C, DashHeader, Delta, Panel, StatCard, StatRows } from "@/components/dashboards/theme";
+import { brl, brl2, C, DashHeader, Delta, Panel, StatCard, StatRows } from "@/components/dashboards/theme";
 
 // Nomes dos tipos de O.S no Shop9 (Configuracoes_Ordem_Servico_Tipos).
 const TIPO_ORCAMENTO = "Orçamento";
@@ -14,6 +14,18 @@ const TIPO_NAO_APROVADO = "Não Aprovado";
 const trunc = (s: string, n = 20) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
 
 type Bucket = { name: string; label: string; valor: number; qtd: number };
+
+type OpenKey = { kind: "situacao" | "servico" | "cliente"; name: string } | null;
+type OsRow = {
+  id: string;
+  numero: number | null;
+  cliente: string;
+  descricao: string;
+  tipo: string;
+  situacao: string;
+  data: string;
+  valor: number;
+};
 
 function top(map: Map<string, { valor: number; qtd: number }>, n: number): Bucket[] {
   return Array.from(map.entries())
@@ -43,6 +55,56 @@ export function ComercialDashboard({
   const filtered = useMemo(() => os.filter((o) => matches(o.data_gravacao)), [os, matches]);
   const tipoNome = useMemo(() => new Map(tipos.map((t) => [t.ordem, t.nome])), [tipos]);
   const situacaoNome = useMemo(() => new Map(situacoes.map((s) => [s.ordem, s.nome])), [situacoes]);
+
+  // Clique numa coluna abre a tabela das O.S por tras dela (uma por vez).
+  const [open, setOpen] = useState<OpenKey>(null);
+  const pick = (kind: "situacao" | "servico" | "cliente") => (name: string) =>
+    setOpen((cur) => (cur && cur.kind === kind && cur.name === name ? null : { kind, name }));
+
+  const detailRows = useMemo<OsRow[]>(() => {
+    if (!open) return [];
+    const tipoDe = (o: Shop9Os) => tipoNome.get(o.tipo_ordem ?? -1) ?? "—";
+    const situacaoDe = (o: Shop9Os) => situacaoNome.get(o.situacao_ordem ?? -1) ?? "Sem situação";
+    const row = (id: string, o: Shop9Os, valor: number): OsRow => ({
+      id,
+      numero: o.numero,
+      cliente: o.cliente ?? "—",
+      descricao: o.descricao ?? "",
+      tipo: tipoDe(o),
+      situacao: situacaoDe(o),
+      data: o.data_gravacao ?? "",
+      valor,
+    });
+    let rows: OsRow[];
+    if (open.kind === "situacao") {
+      rows = filtered.filter((o) => situacaoDe(o) === open.name).map((o) => row(String(o.ordem), o, o.valor_total));
+    } else if (open.kind === "cliente") {
+      rows = filtered
+        .filter((o) => (o.cliente || "Sem cliente") === open.name)
+        .map((o) => row(String(o.ordem), o, o.valor_total));
+    } else {
+      const byMov = new Map(filtered.map((o) => [o.ordem_movimento, o]));
+      rows = itens
+        .filter((i) => i.servico_nome === open.name && byMov.has(i.ordem_movimento))
+        .map((i) => row(`i${i.ordem}`, byMov.get(i.ordem_movimento)!, i.preco_final));
+    }
+    return rows.sort((a, b) => (b.numero ?? 0) - (a.numero ?? 0));
+  }, [open, filtered, itens, tipoNome, situacaoNome]);
+
+  const details = open && (
+    <OsDetails
+      title={
+        open.kind === "situacao"
+          ? `Situação · ${open.name}`
+          : open.kind === "servico"
+            ? `Tipo de O.S · ${open.name}`
+            : `O.S por cliente · ${open.name}`
+      }
+      valueLabel={open.kind === "servico" ? "Valor do serviço" : "Valor da O.S"}
+      rows={detailRows}
+      onClose={() => setOpen(null)}
+    />
+  );
 
   const kpisOf = useMemo(
     () => (list: Shop9Os[]) => {
@@ -202,12 +264,22 @@ export function ComercialDashboard({
             { color: C.gold, label: "Qtd O.S" },
           ]}
         >
-          <ValueQtyChart data={bySituacao} />
+          <ValueQtyChart
+            data={bySituacao}
+            onSelect={pick("situacao")}
+            selected={open?.kind === "situacao" ? open.name : null}
+          />
         </Panel>
         <Panel title="Tipo de O.S" legend={[{ color: C.brown, label: "R$" }]}>
-          <ValueQtyChart data={byServico} showQty={false} />
+          <ValueQtyChart
+            data={byServico}
+            showQty={false}
+            onSelect={pick("servico")}
+            selected={open?.kind === "servico" ? open.name : null}
+          />
         </Panel>
       </div>
+      {open && open.kind !== "cliente" && details}
       <Panel
         title="O.S por Cliente"
         legend={[
@@ -215,8 +287,14 @@ export function ComercialDashboard({
           { color: C.gold, label: "Qtd de O.S" },
         ]}
       >
-        <ValueQtyChart data={byCliente} height={340} />
+        <ValueQtyChart
+          data={byCliente}
+          height={340}
+          onSelect={pick("cliente")}
+          selected={open?.kind === "cliente" ? open.name : null}
+        />
       </Panel>
+      {open && open.kind === "cliente" && details}
     </div>
   );
 }
@@ -225,10 +303,14 @@ function ValueQtyChart({
   data,
   showQty = true,
   height = 300,
+  onSelect,
+  selected,
 }: {
   data: Bucket[];
   showQty?: boolean;
   height?: number;
+  onSelect?: (name: string) => void;
+  selected?: string | null;
 }) {
   return (
     <ComboChart
@@ -237,6 +319,92 @@ function ValueQtyChart({
       lineName={showQty ? "Qtd O.S" : undefined}
       lineFormat={(v) => String(v)}
       height={height}
+      onSelect={onSelect}
+      selected={selected}
     />
+  );
+}
+
+const TIPO_STYLE: Record<string, { bg: string; fg: string }> = {
+  [TIPO_APROVADO]: { bg: `${C.green}1F`, fg: C.green },
+  [TIPO_ORCAMENTO]: { bg: `${C.gold}2E`, fg: "#8A7420" },
+  [TIPO_NAO_APROVADO]: { bg: `${C.red}1F`, fg: C.red },
+};
+
+const dateBr = (iso: string) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
+
+// Tabela das O.S por tras da coluna clicada (situacao, tipo/servico ou cliente).
+function OsDetails({
+  title,
+  valueLabel,
+  rows,
+  onClose,
+}: {
+  title: string;
+  valueLabel: string;
+  rows: OsRow[];
+  onClose: () => void;
+}) {
+  const total = rows.reduce((s, r) => s + r.valor, 0);
+  return (
+    <div className="rounded-xl border p-3" style={{ borderColor: C.tan, background: "#FBF9F4" }}>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="text-sm font-semibold" style={{ color: C.ink }}>
+          {title}
+          <span className="ml-2 font-normal text-neutral-500">
+            {rows.length} {rows.length === 1 ? "registro" : "registros"} · {brl2.format(total)}
+          </span>
+        </div>
+        <button
+          onClick={onClose}
+          className="rounded-md px-2 py-0.5 text-xs font-medium"
+          style={{ background: C.tan, color: C.ink }}
+        >
+          Fechar ✕
+        </button>
+      </div>
+      {rows.length === 0 ? (
+        <p className="py-4 text-center text-sm text-neutral-400">Nenhuma O.S neste período.</p>
+      ) : (
+        <div className="max-h-80 overflow-auto">
+          <table className="w-full border-collapse text-xs">
+            <thead className="sticky top-0" style={{ background: "#FBF9F4" }}>
+              <tr className="text-left font-semibold uppercase" style={{ color: C.brown }}>
+                <th className="px-2 py-1.5">O.S</th>
+                <th className="px-2 py-1.5">Cliente</th>
+                <th className="px-2 py-1.5">Descrição</th>
+                <th className="px-2 py-1.5">Tipo</th>
+                <th className="px-2 py-1.5">Situação</th>
+                <th className="px-2 py-1.5">Data</th>
+                <th className="px-2 py-1.5 text-right">{valueLabel}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const style = TIPO_STYLE[r.tipo] ?? { bg: "#eee", fg: C.gray };
+                return (
+                  <tr key={r.id} className="border-t align-top" style={{ borderColor: "#eee8d8" }}>
+                    <td className="whitespace-nowrap px-2 py-1.5 font-medium">{r.numero ?? "—"}</td>
+                    <td className="px-2 py-1.5">{r.cliente}</td>
+                    <td className="px-2 py-1.5">{r.descricao || "—"}</td>
+                    <td className="px-2 py-1.5">
+                      <span
+                        className="whitespace-nowrap rounded-full px-2 py-0.5 font-medium"
+                        style={{ background: style.bg, color: style.fg }}
+                      >
+                        {r.tipo}
+                      </span>
+                    </td>
+                    <td className="px-2 py-1.5">{r.situacao}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5">{dateBr(r.data)}</td>
+                    <td className="whitespace-nowrap px-2 py-1.5 text-right font-semibold">{brl2.format(r.valor)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }
