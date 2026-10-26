@@ -42,3 +42,6 @@ next-env.d.ts
 supabase/seed-data.json
 
 .vercel
+
+# logs do sync agendado
+/logs

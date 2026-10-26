@@ -49,3 +49,94 @@ export function buildTaskCreatedEmail(clientName: string, tasks: CreatedTask[], 
   `;
   return { subject, html };
 }
+
+export type OverdueTask = {
+  title: string;
+  service: string | null;
+  os_number: number | null;
+  status: TaskStatus;
+  due_date: string;
+  responsavel: string | null;
+  cliente: string;
+};
+
+/**
+ * Resumo diario das etapas vencidas, agrupado por cliente + O.S — a mesma
+ * divisao que a equipe ve no painel. O grupo mais atrasado vem primeiro.
+ */
+export function buildOverdueEmail(tasks: OverdueTask[], hoje: Date) {
+  const diasDeAtraso = (iso: string) =>
+    Math.max(
+      1,
+      Math.round(
+        (Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), hoje.getUTCDate()) -
+          Date.parse(`${iso.slice(0, 10)}T00:00:00Z`)) /
+          86_400_000,
+      ),
+    );
+
+  const grupos = new Map<string, { cliente: string; os: number | null; itens: OverdueTask[] }>();
+  for (const t of tasks) {
+    const chave = `${t.cliente}__${t.os_number ?? "sem-os"}`;
+    const grupo = grupos.get(chave) ?? { cliente: t.cliente, os: t.os_number, itens: [] };
+    grupo.itens.push(t);
+    grupos.set(chave, grupo);
+  }
+
+  const ordenados = [...grupos.values()]
+    .map((g) => ({
+      ...g,
+      itens: [...g.itens].sort((a, b) => a.due_date.localeCompare(b.due_date)),
+      pior: Math.max(...g.itens.map((i) => diasDeAtraso(i.due_date))),
+    }))
+    .sort((a, b) => b.pior - a.pior);
+
+  const blocos = ordenados
+    .map((g) => {
+      const osLabel = g.os != null ? ` <span style="color:#8A6A2F">· O.S ${g.os}</span>` : "";
+      const linhas = g.itens
+        .map((t) => {
+          const dias = diasDeAtraso(t.due_date);
+          const detalhe = [
+            STATUS_LABEL[t.status] ?? t.status,
+            t.responsavel ? `resp.: ${t.responsavel}` : "sem responsável",
+          ].join(" · ");
+          return `
+            <tr>
+              <td style="padding:7px 12px 7px 0;vertical-align:top">${escapeHtml(t.title)}
+                <div style="color:#8a8a8a;font-size:13px">${escapeHtml(detalhe)}</div>
+              </td>
+              <td style="padding:7px 0;text-align:right;white-space:nowrap;vertical-align:top">
+                <span style="color:#C0392B;font-weight:600">${dias} ${dias === 1 ? "dia" : "dias"}</span>
+                <div style="color:#8a8a8a;font-size:13px">venceu ${dateBr(t.due_date)}</div>
+              </td>
+            </tr>`;
+        })
+        .join("");
+
+      return `
+        <div style="margin:0 0 22px 0;padding:14px 16px;border:1px solid #ececec;border-radius:10px">
+          <div style="font-weight:700;margin-bottom:8px">${escapeHtml(g.cliente)}${osLabel}</div>
+          <table style="width:100%;border-collapse:collapse;font-size:15px">${linhas}</table>
+        </div>`;
+    })
+    .join("");
+
+  const totalEtapas = tasks.length;
+  const totalGrupos = ordenados.length;
+  const subject = `${totalGrupos} O.S com etapa vencida (${totalEtapas} no total)`;
+
+  const html = `
+    <div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;max-width:640px">
+      <p style="font-size:17px;margin:0 0 4px 0">
+        <strong>${totalGrupos}</strong> ${totalGrupos === 1 ? "O.S está" : "O.S estão"} com prazo vencido,
+        somando <strong>${totalEtapas}</strong> ${totalEtapas === 1 ? "etapa" : "etapas"}.
+      </p>
+      <p style="color:#8a8a8a;margin:0 0 20px 0;font-size:14px">
+        Da mais atrasada para a menos atrasada.
+      </p>
+      ${blocos}
+    </div>`;
+
+  return { subject, html };
+}
