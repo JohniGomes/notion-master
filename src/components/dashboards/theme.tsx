@@ -2,19 +2,8 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-// Paleta extraida dos dashboards originais da Master.
-export const C = {
-  brown: "#74500E",
-  gold: "#BFA22E",
-  beige: "#EEDFB4",
-  tan: "#E7C98C",
-  cream: "#F5F3EE",
-  ink: "#3B3B3B",
-  green: "#12A150",
-  red: "#E03B30",
-  gray: "#8C8C8C",
-  overdue: "#EE9D95",
-};
+// A paleta vive em ./palette para poder ser usada tambem por server components.
+export { C } from "./palette";
 
 export const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 export const brl2 = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2 });

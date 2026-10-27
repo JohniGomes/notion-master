@@ -1,4 +1,4 @@
-import { C } from "@/components/dashboards/theme";
+import { C } from "@/components/dashboards/palette";
 
 /**
  * Quando os numeros do painel foram importados do Shop9 pela ultima vez.
