@@ -116,3 +116,20 @@ export async function loadPeopleData(supabase: SB): Promise<PeopleTask[]> {
       (t.assignee_id ? profileName.get(t.assignee_id) : "") || t.assignee_name?.trim() || "Não atribuído",
   }));
 }
+
+/**
+ * Momento da ultima importacao do Shop9. O sync carimba synced_at em toda
+ * linha que escreve, entao o maior valor da tabela de O.S e a hora em que os
+ * numeros do painel foram atualizados pela ultima vez.
+ */
+export async function loadLastSync(supabase: SB): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("shop9_os")
+    .select("synced_at")
+    .order("synced_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data?.synced_at) return null;
+  return data.synced_at as string;
+}

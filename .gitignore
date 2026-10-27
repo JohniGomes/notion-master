@@ -45,3 +45,6 @@ supabase/seed-data.json
 
 # logs do sync agendado
 /logs
+
+# config local do Claude Code
+/.claude
