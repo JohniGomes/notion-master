@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
   const { data: tasks, error } = await admin
     .from("tasks")
     .select(
-      "id, title, service, os_number, status, due_date, assignee_name, client:clients(name), assignee:profiles!tasks_assignee_id_fkey(full_name, email)",
+      "id, title, service, os_number, status, due_date, assignee_name, client:clients(name, space_id), assignee:profiles!tasks_assignee_id_fkey(full_name, email)",
     )
     .lt("due_date", corte)
     .neq("status", "done")
@@ -41,6 +41,8 @@ export async function GET(request: NextRequest) {
     const client = Array.isArray(t.client) ? t.client[0] : t.client;
     const assignee = Array.isArray(t.assignee) ? t.assignee[0] : t.assignee;
     return {
+      id: t.id,
+      space_id: client?.space_id ?? "",
       title: t.title,
       service: t.service,
       os_number: t.os_number,

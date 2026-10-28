@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
+import { linkAbrir } from "@/lib/emailTemplates";
 
 // Roda 1x por dia (ver vercel.json). Avisa a equipe sobre etapas com vencimento amanhã.
 export async function GET(request: NextRequest) {
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
 
   const { data: tasks, error } = await admin
     .from("tasks")
-    .select("id, title, service, os_number, client:clients(name)")
+    .select("id, title, service, os_number, client:clients(name, space_id)")
     .eq("due_date", dueDate)
     .is("deleted_at", null);
 
@@ -36,7 +37,8 @@ export async function GET(request: NextRequest) {
     .map((t) => {
       const client = Array.isArray(t.client) ? t.client[0] : t.client;
       const osLabel = t.os_number != null ? ` (O.S ${t.os_number})` : "";
-      return `<li><strong>${client?.name ?? "Cliente"}${osLabel}</strong> — ${t.title}${t.service ? ` (${t.service})` : ""}</li>`;
+      const link = client?.space_id ? ` ${linkAbrir(client.space_id, t.id)}` : "";
+      return `<li><strong>${client?.name ?? "Cliente"}${osLabel}</strong> — ${t.title}${t.service ? ` (${t.service})` : ""}${link}</li>`;
     })
     .join("");
 

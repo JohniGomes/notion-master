@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { assigneeDisplay, deleteTask, restoreTask, updateTask } from "@/lib/data/tasks";
@@ -36,6 +37,8 @@ export function SpacePageClient({
 }) {
   const supabase = createClient();
   const { showUndo } = useToast();
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [clients, setClients] = useState<Client[]>(initialClients);
   const [tasks, setTasks] = useState<TaskWithAssignee[]>(initialTasks);
@@ -47,6 +50,18 @@ export function SpacePageClient({
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const [modalClient, setModalClient] = useState<Client | "new" | null>(null);
   const [modalOsNumber, setModalOsNumber] = useState<number | null>(null);
+
+  // Link vindo de e-mail: /spaces/<id>?tarefa=<taskId> abre direto o painel
+  // daquela tarefa. Depois de abrir, limpa o parametro para o botao voltar
+  // do navegador nao reabrir o painel toda vez.
+  useEffect(() => {
+    const alvo = searchParams.get("tarefa");
+    if (!alvo) return;
+    if (tasks.some((t) => t.id === alvo)) {
+      setOpenTaskId(alvo);
+    }
+    router.replace(`/spaces/${space.id}`, { scroll: false });
+  }, [searchParams, tasks, router, space.id]);
 
   const filteredTasks = useMemo(() => {
     let list = tasks;

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { STATUS_LABEL } from "@/components/status";
 import { sendEmail } from "@/lib/email";
-import { escapeHtml } from "@/lib/emailTemplates";
+import { botaoAbrir, escapeHtml } from "@/lib/emailTemplates";
 import type { TaskStatus } from "@/lib/supabase/types";
 
 export async function POST(request: NextRequest) {
@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
 
   const { data: task, error: taskError } = await supabase
     .from("tasks")
-    .select("id, title, service, os_number, status, client:clients(id, name)")
+    .select("id, title, service, os_number, status, client:clients(id, name, space_id)")
     .eq("id", taskId)
     .single();
   if (taskError || !task) {
@@ -42,6 +42,7 @@ export async function POST(request: NextRequest) {
       html: `
         <p><strong>${escapeHtml(client?.name ?? "Cliente")}${osLabel}</strong></p>
         <p>A etapa <strong>${escapeHtml(task.title)}</strong>${task.service ? ` (${escapeHtml(task.service)})` : ""} mudou de status para <strong>${statusLabel}</strong>.</p>
+        ${client?.space_id ? `<p style="margin-top:16px">${botaoAbrir(client.space_id, task.id)}</p>` : ""}
       `,
     });
   } catch (err) {

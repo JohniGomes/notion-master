@@ -1,4 +1,5 @@
 import { STATUS_LABEL } from "@/components/status";
+import { taskUrl } from "@/lib/urls";
 import type { TaskStatus } from "@/lib/supabase/types";
 
 export function escapeHtml(value: string): string {
@@ -6,6 +7,8 @@ export function escapeHtml(value: string): string {
 }
 
 export type CreatedTask = {
+  id: string;
+  space_id: string;
   title: string;
   service: string | null;
   os_number: number | null;
@@ -15,6 +18,16 @@ export type CreatedTask = {
 };
 
 const dateBr = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
+
+/** Botao "Abrir etapa" — leva direto ao painel daquela tarefa no sistema. */
+export function botaoAbrir(spaceId: string, taskId: string, rotulo = "Abrir etapa") {
+  return `<a href="${taskUrl(spaceId, taskId)}" style="display:inline-block;padding:7px 14px;background:#74500E;color:#fff;border-radius:6px;text-decoration:none;font-size:13px">${rotulo} &rarr;</a>`;
+}
+
+/** Link discreto, para usar dentro de listas. */
+export function linkAbrir(spaceId: string, taskId: string, rotulo = "abrir") {
+  return `<a href="${taskUrl(spaceId, taskId)}" style="color:#74500E;font-size:13px">${rotulo} &rarr;</a>`;
+}
 
 // E-mail unico por lancamento: um servico com varias etapas gera 1 aviso, nao 1 por etapa.
 export function buildTaskCreatedEmail(clientName: string, tasks: CreatedTask[], author: string) {
@@ -33,7 +46,7 @@ export function buildTaskCreatedEmail(clientName: string, tasks: CreatedTask[], 
       ]
         .filter(Boolean)
         .join(" · ");
-      return `<li>${escapeHtml(t.title)} <span style="color:#777">— ${escapeHtml(extra)}</span></li>`;
+      return `<li>${escapeHtml(t.title)} <span style="color:#777">— ${escapeHtml(extra)}</span> ${linkAbrir(t.space_id, t.id)}</li>`;
     })
     .join("");
   const more = tasks.length > 30 ? `<p>... e mais ${tasks.length - 30} etapas.</p>` : "";
@@ -51,6 +64,8 @@ export function buildTaskCreatedEmail(clientName: string, tasks: CreatedTask[], 
 }
 
 export type OverdueTask = {
+  id: string;
+  space_id: string;
   title: string;
   service: string | null;
   os_number: number | null;
@@ -104,7 +119,7 @@ export function buildOverdueEmail(tasks: OverdueTask[], hoje: Date) {
           return `
             <tr>
               <td style="padding:7px 12px 7px 0;vertical-align:top">${escapeHtml(t.title)}
-                <div style="color:#8a8a8a;font-size:13px">${escapeHtml(detalhe)}</div>
+                <div style="color:#8a8a8a;font-size:13px">${escapeHtml(detalhe)} · ${linkAbrir(t.space_id, t.id)}</div>
               </td>
               <td style="padding:7px 0;text-align:right;white-space:nowrap;vertical-align:top">
                 <span style="color:#C0392B;font-weight:600">${dias} ${dias === 1 ? "dia" : "dias"}</span>

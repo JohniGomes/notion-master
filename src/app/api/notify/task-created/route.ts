@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
   const { data: rows, error } = await supabase
     .from("tasks")
     .select(
-      "title, service, os_number, status, due_date, assignee_name, created_at, client:clients(name), assignee:profiles!tasks_assignee_id_fkey(full_name, email)"
+      "id, title, service, os_number, status, due_date, assignee_name, created_at, client:clients(name, space_id), assignee:profiles!tasks_assignee_id_fkey(full_name, email)"
     )
     .in("id", taskIds)
     .order("created_at", { ascending: true });
@@ -30,10 +30,14 @@ export async function POST(request: NextRequest) {
   }
 
   const one = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? (v[0] ?? null) : v);
-  const clientName = one(rows[0].client as { name: string } | { name: string }[] | null)?.name ?? "Cliente";
+  const primeiroCliente = one(rows[0].client as { name: string; space_id: string } | { name: string; space_id: string }[] | null);
+  const clientName = primeiroCliente?.name ?? "Cliente";
   const tasks: CreatedTask[] = rows.map((r) => {
     const assignee = one(r.assignee as unknown as Person | Person[] | null);
+    const cliente = one(r.client as { name: string; space_id: string } | { name: string; space_id: string }[] | null);
     return {
+      id: r.id,
+      space_id: cliente?.space_id ?? "",
       title: r.title,
       service: r.service,
       os_number: r.os_number,
