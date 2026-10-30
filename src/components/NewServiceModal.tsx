@@ -49,6 +49,7 @@ export function NewServiceModal({
   const [assigneeName, setAssigneeName] = useState<string | null>(null);
   const [dueDate, setDueDate] = useState("");
   const [observation, setObservation] = useState("");
+  const [tipoImovel, setTipoImovel] = useState<"urbano" | "rural" | "">("");
   const [files, setFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -58,20 +59,44 @@ export function NewServiceModal({
       topLevelServices.find((s) => s.name.trim().toLowerCase() === servico.trim().toLowerCase()) ?? null,
     [topLevelServices, servico]
   );
-  const matchedSteps = useMemo(
-    () =>
-      matchedService
-        ? serviceCatalog
-            .filter((s) => s.parent_code === matchedService.code)
-            .sort((a, b) => a.position - b.position)
-        : [],
-    [serviceCatalog, matchedService]
+  // Etapas de um servico do catalogo, na ordem cadastrada.
+  const etapasDe = useMemo(
+    () => (code: string) =>
+      serviceCatalog
+        .filter((s) => s.parent_code === code)
+        .sort((a, b) => a.position - b.position)
+        .map((s) => s.name),
+    [serviceCatalog]
   );
+
+  /**
+   * Todo processo leva Contratacao e Entrega, mais o cadastro do tipo de
+   * imovel. A ordem segue o fluxo real: contrata, regulariza o cadastro,
+   * executa o servico e entrega.
+   *
+   * Os quatro blocos continuam escolhiveis na lista, entao um deles pode ser
+   * o proprio servico pedido — por isso a lista e deduplicada no fim.
+   */
+  const matchedSteps = useMemo(() => {
+    if (!matchedService) return [];
+    const cadastro = tipoImovel === "urbano" ? "CAD-U" : tipoImovel === "rural" ? "CAD-R" : null;
+    const nomes = [
+      ...etapasDe("CONTR"),
+      ...(cadastro ? etapasDe(cadastro) : []),
+      ...etapasDe(matchedService.code),
+      ...etapasDe("ENTR"),
+    ];
+    return [...new Set(nomes)];
+  }, [matchedService, tipoImovel, etapasDe]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!clientName.trim() || !servico.trim()) {
       setError("Preencha ao menos o cliente e o serviço.");
+      return;
+    }
+    if (!tipoImovel) {
+      setError("Escolha se o imóvel é urbano ou rural.");
       return;
     }
     setSaving(true);
@@ -94,10 +119,7 @@ export function NewServiceModal({
       }
 
       const serviceName = matchedService ? matchedService.name : servico.trim();
-      const titles =
-        matchedSteps.length > 0
-          ? matchedSteps.map((step) => `${step.code} ${step.name}`)
-          : [serviceName];
+      const titles = matchedSteps.length > 0 ? matchedSteps : [serviceName];
 
       const patch: Partial<Task> = {};
       if (assigneeId) patch.assignee_id = assigneeId;
@@ -197,11 +219,41 @@ export function NewServiceModal({
                 <option key={s.code} value={s.name} />
               ))}
             </datalist>
-            {matchedSteps.length > 0 && (
-              <p className="mt-1 text-xs text-neutral-500">
-                Serão lançadas {matchedSteps.length} etapas automaticamente: {matchedSteps.map((s) => s.name).join(", ")}
+            {matchedService && !tipoImovel && (
+              <p className="mt-1 text-xs text-amber-700">
+                Escolha abaixo se o imóvel é urbano ou rural para ver as etapas.
               </p>
             )}
+            {matchedSteps.length > 0 && (
+              <p className="mt-1 text-xs text-neutral-500">
+                Serão lançadas {matchedSteps.length} etapas automaticamente: {matchedSteps.join(", ")}
+              </p>
+            )}
+          </Field>
+
+          <Field label="Tipo de imóvel">
+            <div className="flex gap-2">
+              {([
+                ["urbano", "Urbano"],
+                ["rural", "Rural"],
+              ] as const).map(([valor, rotulo]) => (
+                <button
+                  key={valor}
+                  type="button"
+                  onClick={() => setTipoImovel(valor)}
+                  className={`flex-1 rounded-md border px-3 py-1.5 text-sm transition ${
+                    tipoImovel === valor
+                      ? "border-neutral-900 bg-neutral-900 text-white"
+                      : "border-neutral-300 text-neutral-700 hover:border-neutral-400"
+                  }`}
+                >
+                  {rotulo}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-neutral-500">
+              Define se entra o cadastro urbano (IPTU) ou o rural (CAR, CCIR, CIB).
+            </p>
           </Field>
 
           <div className="grid grid-cols-2 gap-3">
