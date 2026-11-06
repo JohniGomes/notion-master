@@ -116,10 +116,36 @@ REGRAS
 
 const MAX_STEPS = 6;
 
-async function callGemini(body: unknown) {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) throw new Error("GEMINI_API_KEY nao configurada.");
-  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+/** Erro que o usuario final pode ler, sem JSON cru da API. */
+export class AssistenteIndisponivel extends Error {
+  constructor(mensagem: string) {
+    super(mensagem);
+    this.name = "AssistenteIndisponivel";
+  }
+}
+
+const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** 429 e 5xx sao transitorios: vale repetir. 4xx de verdade, nao. */
+const vaiAdiantarRepetir = (status: number) => status === 429 || status >= 500;
+
+/**
+ * Modelos na ordem de preferencia. Quando o principal esta sobrecarregado
+ * (503 UNAVAILABLE, comum em horario de pico), cai para o proximo em vez de
+ * devolver erro para o usuario.
+ */
+function modelos(): string[] {
+  const principal = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+  const reservas = (process.env.GEMINI_MODELOS_RESERVA || "gemini-2.0-flash,gemini-2.5-flash-lite")
+    .split(",")
+    .map((m) => m.trim())
+    .filter(Boolean);
+  return [...new Set([principal, ...reservas])];
+}
+
+const TENTATIVAS_POR_MODELO = 3;
+
+async function chamarModelo(model: string, key: string, body: unknown) {
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": key },
@@ -127,13 +153,49 @@ async function callGemini(body: unknown) {
     signal: AbortSignal.timeout(50_000),
   });
   if (!res.ok) {
-    const detail = await res.text();
-    throw new Error(`Gemini ${res.status}: ${detail.slice(0, 300)}`);
+    const detalhe = await res.text();
+    const erro = new Error(`Gemini ${res.status}: ${detalhe.slice(0, 300)}`) as Error & { status?: number };
+    erro.status = res.status;
+    throw erro;
   }
   return (await res.json()) as {
     candidates?: { content?: { parts?: Part[] }; finishReason?: string }[];
     promptFeedback?: { blockReason?: string };
   };
+}
+
+async function callGemini(body: unknown) {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) throw new Error("GEMINI_API_KEY nao configurada.");
+
+  let ultimoStatus = 0;
+  for (const model of modelos()) {
+    for (let tentativa = 1; tentativa <= TENTATIVAS_POR_MODELO; tentativa++) {
+      try {
+        return await chamarModelo(model, key, body);
+      } catch (err) {
+        const status = (err as { status?: number }).status ?? 0;
+        ultimoStatus = status || ultimoStatus;
+
+        // erro de verdade (chave invalida, pedido malformado): nao insiste
+        if (status && !vaiAdiantarRepetir(status)) throw err;
+
+        const ultimaDesteModelo = tentativa === TENTATIVAS_POR_MODELO;
+        if (ultimaDesteModelo) {
+          console.warn(`ai/chat: ${model} indisponivel (${status || "timeout"}), tentando o proximo modelo`);
+          break;
+        }
+        // espera crescente com variacao, para nao bater todos de uma vez
+        await dormir(tentativa * 700 + Math.random() * 400);
+      }
+    }
+  }
+
+  throw new AssistenteIndisponivel(
+    ultimoStatus === 429
+      ? "O limite de uso da IA foi atingido. Tente de novo em alguns minutos."
+      : "A IA do Google esta sobrecarregada neste momento. Tente de novo em alguns minutos.",
+  );
 }
 
 // Conversa com o Gemini, deixando-o chamar as ferramentas de metricas ate chegar na resposta.

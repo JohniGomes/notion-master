@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { loadCommercialData, loadFinanceData, loadPeopleData } from "@/lib/data/shop9";
-import { askAssistant, type ChatMessage } from "@/lib/ai/gemini";
+import { AssistenteIndisponivel, askAssistant, type ChatMessage } from "@/lib/ai/gemini";
 
 export const maxDuration = 60;
 
@@ -39,9 +39,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ reply, toolsUsed });
   } catch (err) {
     console.error("ai/chat:", err instanceof Error ? err.message : err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Falha ao consultar o assistente." },
-      { status: 502 }
-    );
+
+    // Sobrecarga do Gemini: mensagem curta e sugestao de repetir.
+    if (err instanceof AssistenteIndisponivel) {
+      return NextResponse.json({ error: err.message, podeRepetir: true }, { status: 503 });
+    }
+
+    // Qualquer outra falha vira texto legivel: o JSON cru da API nao ajuda
+    // quem esta olhando o painel. O detalhe fica no log do servidor.
+    const bruto = err instanceof Error ? err.message : "";
+    const amigavel = bruto.startsWith("Gemini ")
+      ? "A IA do Google recusou a consulta. Tente reformular a pergunta."
+      : bruto || "Falha ao consultar o assistente.";
+    return NextResponse.json({ error: amigavel }, { status: 502 });
   }
 }

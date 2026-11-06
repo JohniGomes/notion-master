@@ -35,6 +35,8 @@ export function AssistenteChat() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // guarda a pergunta que falhou, para o botao de repetir
+  const [falhou, setFalhou] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
   const suggestions = useMemo(() => {
@@ -62,6 +64,7 @@ export function AssistenteChat() {
     setMessages(next);
     setInput("");
     setError("");
+    setFalhou(null);
     setLoading(true);
     try {
       const res = await fetch("/api/ai/chat", {
@@ -69,8 +72,17 @@ export function AssistenteChat() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: next.map((m) => ({ role: m.role, text: m.text })) }),
       });
-      const json = (await res.json().catch(() => ({}))) as { reply?: string; toolsUsed?: string[]; error?: string };
-      if (!res.ok || !json.reply) throw new Error(json.error ?? "Não foi possível obter a resposta.");
+      const json = (await res.json().catch(() => ({}))) as {
+        reply?: string;
+        toolsUsed?: string[];
+        error?: string;
+        podeRepetir?: boolean;
+      };
+      if (!res.ok || !json.reply) {
+        // sobrecarga da IA: deixa a pergunta pronta para uma nova tentativa
+        if (json.podeRepetir) setFalhou(question);
+        throw new Error(json.error ?? "Não foi possível obter a resposta.");
+      }
       setMessages([...next, { role: "model", text: json.reply, tools: Array.from(new Set(json.toolsUsed ?? [])) }]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao consultar o assistente.");
@@ -155,8 +167,27 @@ export function AssistenteChat() {
             </div>
           )}
           {error && (
-            <div className="rounded-lg px-3 py-2 text-sm" style={{ background: `${C.red}14`, color: C.red }}>
-              {error}
+            <div
+              className="flex flex-wrap items-center gap-3 rounded-lg px-3 py-2 text-sm"
+              style={{ background: `${C.red}14`, color: C.red }}
+            >
+              <span>{error}</span>
+              {falhou && !loading && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    // tira a pergunta que ficou sem resposta antes de repetir
+                    setMessages((prev) =>
+                      prev.length && prev[prev.length - 1].role === "user" ? prev.slice(0, -1) : prev,
+                    );
+                    send(falhou);
+                  }}
+                  className="rounded-md px-2.5 py-1 text-xs font-medium text-white transition hover:opacity-90"
+                  style={{ background: C.red }}
+                >
+                  Tentar de novo
+                </button>
+              )}
             </div>
           )}
           <div ref={endRef} />
